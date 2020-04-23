@@ -33,7 +33,7 @@ import kotlin.random.Random
  * 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
  * 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tv'
  */
-class ImageSegmentationModelExecutor(
+class ImageSegmentationModelExecutor1(
     private val context: Context,
     private var useGPU: Boolean = false
 ) {
@@ -47,7 +47,7 @@ class ImageSegmentationModelExecutor(
     private var imageSegmentationTime = 0L
     private var maskFlatteningTime = 0L
 
-    private var numberThreads = 2
+    private var numberThreads = 4
 
     private val executorService: ExecutorService = Executors.newSingleThreadExecutor()
 
@@ -153,13 +153,13 @@ class ImageSegmentationModelExecutor(
 
     private fun formatExecutionLog(): String {
         val sb = StringBuilder()
-        sb.append("Input Image Size: $imageSize x $imageSize\n")
+        /*sb.append("Input Image Size: $imageSize x $imageSize\n")
         sb.append("GPU enabled: $useGPU\n")
         sb.append("Number of threads: $numberThreads\n")
         sb.append("Pre-process execution time: $preprocessTime ms\n")
         sb.append("Model execution time: $imageSegmentationTime ms\n")
         sb.append("Mask flatten time: $maskFlatteningTime ms\n")
-        sb.append("Full execution time: $fullTimeExecutionTime ms\n")
+        sb.append("Full execution time: $fullTimeExecutionTime ms\n")*/
         return sb.toString()
     }
 
@@ -200,10 +200,10 @@ class ImageSegmentationModelExecutor(
             for (x in 0 until imageWidth) {
                 var maxVal = 0f
                 mSegmentBits[x][y] = 0
-
+                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
                 for (c in 0 until NUM_CLASSES) {
                     val value = inputBuffer
-                        .getFloat((y * imageWidth * NUM_CLASSES + x * NUM_CLASSES + c) * 4)
+                        .getFloat((index + c) * 4)
                     if (c == 0 || value > maxVal) {
                         maxVal = value
                         mSegmentBits[x][y] = c
@@ -211,10 +211,15 @@ class ImageSegmentationModelExecutor(
                 }
 
                 itemsFound.add(mSegmentBits[x][y])
-                val newPixelColor = ColorUtils.compositeColors(
+                var newPixelColor = ColorUtils.compositeColors(
                     colors[mSegmentBits[x][y]],
                     scaledBackgroundImage.getPixel(x, y)
                 )
+                if(newPixelColor == scaledBackgroundImage.getPixel(x, y)) {
+                    newPixelColor = Color.TRANSPARENT
+                } else {
+                    newPixelColor = scaledBackgroundImage.getPixel(x, y)
+                }
                 resultBitmap.setPixel(x, y, newPixelColor)
                 maskBitmap.setPixel(x, y, colors[mSegmentBits[x][y]])
             }
@@ -227,7 +232,7 @@ class ImageSegmentationModelExecutor(
 
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "deeplabv3_257_mv_gpu.tflite"
-        //private const val imageSegmentationModel = "detect.tflite"
+        //private const val imageSegmentationModel = "mobilenet_v1_0.25_128.tflite"
         private const val imageSize = 257
         const val NUM_CLASSES = 21
         private const val IMAGE_MEAN = 128.0f
