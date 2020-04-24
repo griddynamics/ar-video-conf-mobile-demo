@@ -151,7 +151,7 @@ class CameraFragment4 : Fragment() {
         val ims = activity?.assets?.open("beach_photo.jpeg");
         val metrics = DisplayMetrics().also { modifiedView.display.getRealMetrics(it) }
         width = metrics.widthPixels
-        height = metrics.heightPixels - 550
+        height = metrics.heightPixels - 200
         val matrix = Matrix()
 
         matrix.postRotate(90.0f);
@@ -165,7 +165,6 @@ class CameraFragment4 : Fragment() {
         val bitmap = imageProxy.toYUV420Bitmap(90)
         imageSegmentation?.executeAsync(bitmap)
             ?.addOnSuccessListener { result ->
-                val imageSegmentationTime = SystemClock.uptimeMillis()
                 result?.bitmapResult ?: return@addOnSuccessListener
                 val canvas = modifiedView.holder.lockCanvas() ?: return@addOnSuccessListener
 
@@ -174,8 +173,6 @@ class CameraFragment4 : Fragment() {
                 modifiedView.holder.unlockCanvasAndPost(canvas)
                 bitmap.recycle()
                 result.recycle()
-                val finish = SystemClock.uptimeMillis() - imageSegmentationTime
-                Log.d("Process", "Total $finish")
                 imageProxy.close()
             }
             ?.addOnFailureListener {
