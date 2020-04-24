@@ -184,14 +184,7 @@ class ImageSegmentationModelExecutor1(
         colors: IntArray
     ): Triple<Bitmap, Bitmap, Set<Int>> {
         val conf = Bitmap.Config.ARGB_8888
-        val maskBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
-        val scaledBackgroundImage =
-            ImageUtils.scaleBitmapAndKeepRatio(
-                backgroundImage,
-                imageWidth,
-                imageHeight
-            )
         val mSegmentBits = Array(imageWidth) { IntArray(imageHeight) }
         val itemsFound = HashSet<Int>()
         inputBuffer.rewind()
@@ -210,29 +203,19 @@ class ImageSegmentationModelExecutor1(
                     }
                 }
 
-                itemsFound.add(mSegmentBits[x][y])
-                var newPixelColor = ColorUtils.compositeColors(
-                    colors[mSegmentBits[x][y]],
-                    scaledBackgroundImage.getPixel(x, y)
-                )
-                if(newPixelColor == scaledBackgroundImage.getPixel(x, y)) {
-                    newPixelColor = Color.TRANSPARENT
-                } else {
-                    newPixelColor = scaledBackgroundImage.getPixel(x, y)
+                if (colors[mSegmentBits[x][y]] != 0) {
+                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
                 }
-                resultBitmap.setPixel(x, y, newPixelColor)
-                maskBitmap.setPixel(x, y, colors[mSegmentBits[x][y]])
             }
         }
 
-        return Triple(resultBitmap, maskBitmap, itemsFound)
+        return Triple(resultBitmap, resultBitmap, itemsFound)
     }
 
     companion object {
 
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "deeplabv3_257_mv_gpu.tflite"
-        //private const val imageSegmentationModel = "mobilenet_v1_0.25_128.tflite"
         private const val imageSize = 257
         const val NUM_CLASSES = 21
         private const val IMAGE_MEAN = 128.0f
