@@ -11,7 +11,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
     private val REQUEST_CODE_PERMISSIONS = 100
     private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
-    private lateinit var cameraFragment: CameraFragment4
+    private lateinit var cameraFragment: CameraFragment5
     private var lensFacing = CameraCharacteristics.LENS_FACING_FRONT
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addCameraFragment() {
-        cameraFragment = CameraFragment4.newInstance(lensFacing)
+        cameraFragment = CameraFragment5.newInstance(lensFacing)
         supportFragmentManager.popBackStack()
         supportFragmentManager.beginTransaction()
             .replace(R.id.view_finder, cameraFragment)

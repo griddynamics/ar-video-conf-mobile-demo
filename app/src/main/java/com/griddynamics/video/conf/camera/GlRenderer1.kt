@@ -10,14 +10,22 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import androidx.core.graphics.scale
+import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutor1
 import com.griddynamics.video.conf.toBitmap
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-class GlRenderer(private val gLSurfaceView: GLSurfaceView) : GLSurfaceView.Renderer,
+class GlRenderer1(
+    private val gLSurfaceView: GLSurfaceView,
+    private val imageSegmentation: ImageSegmentationModelExecutor1,
+    private val width: Int,
+    private val height: Int
+) : GLSurfaceView.Renderer,
     ImageAnalysis.Analyzer {
     private val textures = IntArray(2)
     private var square: Square? = null
+
 
     private var effectContext: EffectContext? = null
     private var effect: Effect? = null
@@ -26,7 +34,7 @@ class GlRenderer(private val gLSurfaceView: GLSurfaceView) : GLSurfaceView.Rende
 
     @Synchronized
     fun setImage(image: Bitmap) {
-        this.image?.recycle()
+        //this.image?.recycle()
 
         this.image = image
     }
@@ -89,20 +97,32 @@ class GlRenderer(private val gLSurfaceView: GLSurfaceView) : GLSurfaceView.Rende
         val effectContext = this.effectContext
         if (image != null && effectContext != null) {
             val factory = effectContext.factory
-            effect = factory.createEffect(EffectFactory.EFFECT_SEPIA).apply {
+            effect = factory.createEffect(EffectFactory.EFFECT_AUTOFIX).apply {
                 apply(textures[0], image.width, image.height, textures[1])
             }
         }
     }
 
+    var counter = 0
     override fun analyze(image: ImageProxy, rotationDegrees: Int) {
+        counter++
+        if (counter%2 == 0) {
+            return
+        }
         val matrix = Matrix()
         matrix.postRotate(rotationDegrees.toFloat())
 
         val b = image.image!!.toBitmap()
         val bm = Bitmap.createBitmap(b, 0, 0, b.width, b.height, matrix, true)
-        setImage(bm)
+        //setImage(bm)
+        imageSegmentation?.executeAsync(bm)
+            ?.addOnSuccessListener { result ->
+                result?.bitmapResult ?: return@addOnSuccessListener
+                setImage(result?.bitmapResult.scale(width, height, false))
+                gLSurfaceView.requestRender()
+            }
+            ?.addOnFailureListener {
 
-        gLSurfaceView.requestRender()
+            }
     }
 }
