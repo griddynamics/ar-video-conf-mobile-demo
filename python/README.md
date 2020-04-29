@@ -23,3 +23,14 @@ Image matting datasets are available:
   
  In my experiments I used data set from MSCOCO http://images.cocodataset.org/zips/train2014.zip (12,6GB). It is enough to unzip dataset into faces directory(masks and images).
 
+# Scripts
+
+For training:
+```
+python3 unet.py
+```
+
+For video processing:
+```
+python3 video.py
+```
