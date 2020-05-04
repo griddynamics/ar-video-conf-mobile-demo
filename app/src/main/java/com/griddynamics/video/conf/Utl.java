@@ -1,6 +1,7 @@
 package com.griddynamics.video.conf;
 
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Environment;
@@ -9,6 +10,7 @@ import android.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import static android.content.ContentValues.TAG;
@@ -71,6 +73,35 @@ public class Utl {
 
         }
         return null;
+    }
+
+    public static Bitmap compressBitmap(String path) {
+        Bitmap bitmap;
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        try {
+            InputStream in = new java.net.URL("file://"+path).openStream();
+            bitmap = BitmapFactory.decodeStream(in);
+            return bitmap;
+        } catch (Exception e) {
+            Log.e("Error", e.getMessage());
+            e.printStackTrace();
+        }
+        //BitmapFactory.decodeFile("file://"+path, options);
+        int i = 0;
+
+        while (true) {
+            if ((options.outWidth >> i <= 1000)
+                    && (options.outHeight >> i <= 1000)) {
+                options.inSampleSize = (int) Math.pow(2.0D, i);
+                options.inJustDecodeBounds = false;
+                bitmap = BitmapFactory.decodeFile(path, options);
+                break;
+            }
+            i += 1;
+        }
+        return bitmap;
     }
 
 }

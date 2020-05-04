@@ -1,28 +1,31 @@
 package com.griddynamics.video.conf
 
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
+import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Size
 import android.view.LayoutInflater
-import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.annotation.IntRange
 import androidx.camera.core.CameraX
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.UseCase
 //import androidx.camera.core.ImageAnalysisConfig
 import androidx.fragment.app.Fragment
-import com.griddynamics.video.conf.camera.GlRenderer
 import java.util.concurrent.Executors
-import androidx.camera.camera2.Camera2Config
-import androidx.camera.core.CameraX.LensFacing.BACK
 import androidx.camera.core.CameraX.LensFacing.FRONT
 import androidx.camera.core.ImageAnalysisConfig
 import com.griddynamics.video.conf.camera.GlRenderer1
 import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutor1
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.text.TextUtils
+import java.io.File
 
 
 
@@ -31,10 +34,13 @@ private const val EXTRA_CAM = "CAMERA_ID"
 
 class CameraFragment5 : Fragment() {
 
+    private val REQUEST_REQUIRED_PERMISSION = 0x01
+    private val REQUEST_PICK_IMAGE = 0x02
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var surfaceView: GLSurfaceView
     private lateinit var renderer: GlRenderer1
     private lateinit var imageSegmentation: ImageSegmentationModelExecutor1
+    private lateinit var imgBackground: ImageView
     private var width: Int = 0
     private var height: Int = 0
 
@@ -60,9 +66,10 @@ class CameraFragment5 : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_camera5, container, false)
         surfaceView = view.findViewById(R.id.glsurface)
-        surfaceView.setZOrderOnTop(true);
-        surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-        surfaceView.getHolder().setFormat(PixelFormat.RGBA_8888);
+        surfaceView.setZOrderOnTop(true)
+        surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+        surfaceView.holder.setFormat(PixelFormat.RGBA_8888)
+        imgBackground = view.findViewById(R.id.imgBackground)
         val metrics = DisplayMetrics()
 
         activity!!.getWindowManager().getDefaultDisplay().getMetrics(metrics)
@@ -80,11 +87,52 @@ class CameraFragment5 : Fragment() {
         surfaceView.setEGLContextClientVersion(2)
         surfaceView.setRenderer(renderer)
         surfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
-
-        start()
+        loadBackground()
     }
 
-    private fun start() {
+    private fun loadBackground() {
+        val intent: Intent
+
+        if (Build.VERSION.SDK_INT >= 19) {
+            intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+            intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        } else {
+            intent = Intent(Intent.ACTION_GET_CONTENT)
+        }
+
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.type = "image/*"
+
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+        startActivityForResult(intent, REQUEST_PICK_IMAGE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_PICK_IMAGE && data != null) {
+            val pickedImageUri = data.data
+
+            if (pickedImageUri != null) {
+                if (Build.VERSION.SDK_INT >= 19) {
+                    val takeFlags = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    activity!!.contentResolver
+                        .takePersistableUriPermission(pickedImageUri, takeFlags)
+                }
+                val filePath = FilePickUtils.getPath(context, pickedImageUri)
+                val options = BitmapFactory.Options()
+                options.inJustDecodeBounds = true
+                val myBitmap = Utl.compressBitmap(filePath)
+
+                imgBackground.setImageBitmap(myBitmap)
+            } else {
+                imgBackground.setImageResource(R.drawable.beach_photo)
+            }
+        }
+        startProcess()
+    }
+
+    private fun startProcess() {
         surfaceView.post { startCamera() }
     }
 

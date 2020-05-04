@@ -3,4 +3,7 @@
 
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="face_detection">Face detection</string>
+    <string name="no_camera_access" translatable="false">Please grant camera permissions.</string>
+    <string name="palm_detection">Palm detection</string>
 </resources>
