@@ -1,13 +1,17 @@
 package com.griddynamics.video.conf;
 
+import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -21,6 +25,9 @@ import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmarkList;
 import com.google.mediapipe.framework.AndroidAssetUtil;
 import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
+import com.griddynamics.video.conf.calculator.HandGesture;
+import com.griddynamics.video.conf.calculator.HandGestureCalculator;
+import com.griddynamics.video.conf.texture.converter.PalmTextureConverter;
 
 import java.util.List;
 
@@ -53,15 +60,21 @@ public class PalmDetectionActivity extends AppCompatActivity {
     private FrameProcessor processor;
     // Converts the GL_TEXTURE_EXTERNAL_OES texture from Android camera into a regular texture to be
     // consumed by {@link FrameProcessor} and the underlying MediaPipe graph.
-    private ExternalTextureConverter converter;
+    private PalmTextureConverter converter;
     // Handles camera access via the {@link CameraX} Jetpack support library.
     private CameraXPreviewHelper cameraHelper;
+
+    private AudioManager audioManager = null;
+    private TextView txtGesture = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_palm_detection);
         previewDisplayView = new SurfaceView(this);
         setupPreviewDisplayView();
+        txtGesture = findViewById(R.id.txtGesture);
+        txtGesture.bringToFront();
         // Initialize asset manager so that MediaPipe native libraries can access the app assets, e.g.,
         // binary graphs.
         AndroidAssetUtil.initializeNativeAssetManager(this);
@@ -80,19 +93,28 @@ public class PalmDetectionActivity extends AppCompatActivity {
                     Log.d(TAG, "Received multi-hand landmarks packet.");
                     List<NormalizedLandmarkList> multiHandLandmarks =
                             PacketGetter.getProtoVector(packet, NormalizedLandmarkList.parser());
-                    Log.d(
-                            TAG,
-                            "[TS:"
-                                    + packet.getTimestamp()
-                                    + "] "
-                                    + getMultiHandLandmarksDebugString(multiHandLandmarks));
+                    HandGestureCalculator calculator = new HandGestureCalculator();
+                    HandGesture gesture = calculator.detectGesture(multiHandLandmarks);
+                    if (gesture == HandGesture.FIST) {
+                        Log.d("HandGesture", "FIST");
+                        audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_PLAY_SOUND);
+                    }
+
+                    if (gesture == HandGesture.OPEN_HAND) {
+                        Log.d("HandGesture", "OPEN_HAND");
+                        audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND);
+                    }
+                    runOnUiThread(() -> txtGesture.setText(gesture.toString()));
+
+
                 });
         PermissionHelper.checkAndRequestCameraPermissions(this);
+        audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
     }
     @Override
     protected void onResume() {
         super.onResume();
-        converter = new ExternalTextureConverter(eglManager.getContext());
+        converter = new PalmTextureConverter(eglManager.getContext());
         converter.setFlipY(FLIP_FRAMES_VERTICALLY);
         converter.setConsumer(processor);
         if (PermissionHelper.cameraPermissionsGranted(this)) {
@@ -149,34 +171,8 @@ public class PalmDetectionActivity extends AppCompatActivity {
                     // Make the display view visible to start showing the preview. This triggers the
                     // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
                     previewDisplayView.setVisibility(View.VISIBLE);
+                    txtGesture.bringToFront();
                 });
         cameraHelper.startCamera(this, CAMERA_FACING, /*surfaceTexture=*/ null);
-    }
-    private String getMultiHandLandmarksDebugString(List<NormalizedLandmarkList> multiHandLandmarks) {
-        if (multiHandLandmarks.isEmpty()) {
-            return "No hand landmarks";
-        }
-        String multiHandLandmarksStr = "Number of hands detected: " + multiHandLandmarks.size() + "\n";
-        int handIndex = 0;
-        for (NormalizedLandmarkList landmarks : multiHandLandmarks) {
-            multiHandLandmarksStr +=
-                    "\t#Hand landmarks for hand[" + handIndex + "]: " + landmarks.getLandmarkCount() + "\n";
-            int landmarkIndex = 0;
-            for (NormalizedLandmark landmark : landmarks.getLandmarkList()) {
-                multiHandLandmarksStr +=
-                        "\t\tLandmark ["
-                                + landmarkIndex
-                                + "]: ("
-                                + landmark.getX()
-                                + ", "
-                                + landmark.getY()
-                                + ", "
-                                + landmark.getZ()
-                                + ")\n";
-                ++landmarkIndex;
-            }
-            ++handIndex;
-        }
-        return multiHandLandmarksStr;
     }
 }

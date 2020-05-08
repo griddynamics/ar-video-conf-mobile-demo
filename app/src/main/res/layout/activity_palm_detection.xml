@@ -10,6 +10,15 @@
         android:layout_height="fill_parent"
         android:layout_weight="1">
         <TextView
+            android:id="@+id/txtGesture"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textColor="#FF00"
+            android:textSize="18dp"
+            android:textStyle="bold"
+            android:text="UNKNOWN"
+            tools:text="UNKNOWN" />
+        <TextView
             android:id="@+id/no_camera_access_view"
             android:layout_height="fill_parent"
             android:layout_width="fill_parent"
