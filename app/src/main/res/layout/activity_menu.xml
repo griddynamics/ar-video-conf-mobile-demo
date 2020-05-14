@@ -20,4 +20,11 @@
         android:text="@string/palm_detection"
         android:textAlignment="center"/>
 
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btn_video"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/combined"
+        android:textAlignment="center"/>
+
 </LinearLayout>
