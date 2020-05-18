@@ -106,9 +106,15 @@ class VideoRenderer(
     var counter = 0
     override fun analyze(image: ImageProxy, rotationDegrees: Int) {
         counter++
-        if (counter%2 == 0) {
+        if (counter == 10) {
+            counter = 0
             return
         }
+
+        if (counter > 1) {
+            return
+        }
+
         val matrix = Matrix()
         matrix.postRotate(rotationDegrees.toFloat())
 
