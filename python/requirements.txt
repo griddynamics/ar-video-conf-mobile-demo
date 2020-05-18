@@ -1,10 +1,11 @@
 numpy
-tensorflow==2.1.0
+tensorflow==2.2.0
 keras==2.3.1
+tensorflowjs
 opencv-python
 scikit-image
 scikit-learn
-keras-unet
+keras-unet==0.1.0
 tqdm
 opencv-contrib-python
 imutils
