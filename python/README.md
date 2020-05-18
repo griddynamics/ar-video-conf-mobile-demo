@@ -2,11 +2,11 @@
 
 Software:
 * python3
-* tensorflow 2.1
+* tensorflow 2.2
 
 Hardware:
 * for training:
-  * Nvidia GPU 4GB RAM
+  * Nvidia GPU 4GB RAM (CPU training is possible but will take 2-3 weeks instead of 10 hours)
   * Cuda 10.1
   * HDD 40GB
   * RAM minimum 16GB, recommended 32GB
@@ -21,7 +21,7 @@ Image matting datasets are available:
   * VOC challenge 2008 training/validation data http://host.robots.ox.ac.uk/pascal/VOC/voc2008/VOCtrainval_14-Jul-2008.tar
   * The test data for the VOC2008 challenge http://host.robots.ox.ac.uk/pascal/VOC/voc2008/index.html#testdata
   
- In my experiments I used data set from MSCOCO http://images.cocodataset.org/zips/train2014.zip (12,6GB). It is enough to unzip dataset into faces directory(masks and images).
+In my experiments I used data set from MSCOCO http://images.cocodataset.org/zips/train2014.zip (12,6GB). It is enough to unzip dataset into faces directory(masks and images).
 
 # Scripts
 
