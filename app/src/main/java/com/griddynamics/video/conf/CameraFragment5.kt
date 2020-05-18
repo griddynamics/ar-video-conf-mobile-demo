@@ -25,6 +25,8 @@ import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutor1
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.text.TextUtils
+import com.griddynamics.video.conf.camera.GlRendererCustom
+import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutorCustom
 import java.io.File
 
 
@@ -38,8 +40,8 @@ class CameraFragment5 : Fragment() {
     private val REQUEST_PICK_IMAGE = 0x02
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var surfaceView: GLSurfaceView
-    private lateinit var renderer: GlRenderer1
-    private lateinit var imageSegmentation: ImageSegmentationModelExecutor1
+    private lateinit var renderer: GlRendererCustom
+    private lateinit var imageSegmentation: ImageSegmentationModelExecutorCustom
     private lateinit var imgBackground: ImageView
     private var width: Int = 0
     private var height: Int = 0
@@ -53,7 +55,7 @@ class CameraFragment5 : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        imageSegmentation = ImageSegmentationModelExecutor1(requireContext(), true)
+        imageSegmentation = ImageSegmentationModelExecutorCustom(requireContext(), true)
         imageSegmentation?.initialize()
             ?.addOnSuccessListener { }
             ?.addOnFailureListener { }
@@ -82,7 +84,7 @@ class CameraFragment5 : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        renderer = GlRenderer1(surfaceView, imageSegmentation, width, height)
+        renderer = GlRendererCustom(surfaceView, imageSegmentation, width, height)
         surfaceView.preserveEGLContextOnPause = true
         surfaceView.setEGLContextClientVersion(2)
         surfaceView.setRenderer(renderer)
