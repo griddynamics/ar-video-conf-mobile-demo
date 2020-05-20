@@ -34,20 +34,20 @@ import java.io.File
 
 private const val EXTRA_CAM = "CAMERA_ID"
 
-class CameraFragment5 : Fragment() {
+class CameraFragmentCustomModel : Fragment() {
 
     private val REQUEST_REQUIRED_PERMISSION = 0x01
     private val REQUEST_PICK_IMAGE = 0x02
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var surfaceView: GLSurfaceView
-    private lateinit var renderer: GlRenderer1
-    private lateinit var imageSegmentation: ImageSegmentationModelExecutor1
+    private lateinit var renderer: GlRendererCustom
+    private lateinit var imageSegmentation: ImageSegmentationModelExecutorCustom
     private lateinit var imgBackground: ImageView
     private var width: Int = 0
     private var height: Int = 0
 
     companion object {
-        fun newInstance(@IntRange(from = 0, to = 1) cameraId: Int) = CameraFragment5()
+        fun newInstance(@IntRange(from = 0, to = 1) cameraId: Int) = CameraFragmentCustomModel()
             .apply {
                 arguments = Bundle().apply { putInt(EXTRA_CAM, cameraId) }
             }
@@ -55,7 +55,7 @@ class CameraFragment5 : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        imageSegmentation = ImageSegmentationModelExecutor1(requireContext(), true)
+        imageSegmentation = ImageSegmentationModelExecutorCustom(requireContext(), true)
         imageSegmentation?.initialize()
             ?.addOnSuccessListener { }
             ?.addOnFailureListener { }
@@ -66,7 +66,7 @@ class CameraFragment5 : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_camera5, container, false)
+        val view = inflater.inflate(R.layout.fragment_camera_custom_model, container, false)
         surfaceView = view.findViewById(R.id.glsurface)
         surfaceView.setZOrderOnTop(true)
         surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0)
@@ -84,7 +84,7 @@ class CameraFragment5 : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        renderer = GlRenderer1(surfaceView, imageSegmentation, width, height)
+        renderer = GlRendererCustom(surfaceView, imageSegmentation, width, height)
         surfaceView.preserveEGLContextOnPause = true
         surfaceView.setEGLContextClientVersion(2)
         surfaceView.setRenderer(renderer)

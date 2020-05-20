@@ -21,6 +21,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.random.Random
 
+
+
+
+
 /**
  * Class responsible to run the Image Segmentation model.
  * more information about the DeepLab model being used can
@@ -102,7 +106,7 @@ class ImageSegmentationModelExecutorCustom(
 
         maskFlatteningTime = SystemClock.uptimeMillis()
         val (maskImageApplied, maskOnly, itemsFound) =
-            convertBytebufferMaskToBitmap(
+            convertBytebufferMaskToBitmap1(
                 segmentationMasks!!,
                 imageSize,
                 imageSize, scaledBitmap,
@@ -208,11 +212,65 @@ class ImageSegmentationModelExecutorCustom(
                     }
                 }
 
-                if (colors[mSegmentBits[x][y]] != 0) {
+                if (mSegmentBits[x][y] != 0) {
                     resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
                 }
+/*                if (colors[mSegmentBits[x][y]] != 0) {
+                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
+                }*/
             }
         }
+
+        return Triple(resultBitmap, resultBitmap, itemsFound)
+    }
+
+    private fun convertBytebufferMaskToBitmap1(
+        inputBuffer: ByteBuffer,
+        imageWidth: Int,
+        imageHeight: Int,
+        backgroundImage: Bitmap,
+        colors: IntArray
+    ): Triple<Bitmap, Bitmap, Set<Int>> {
+        val conf = Bitmap.Config.ARGB_8888
+        val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
+        val mSegmentBits = Array(imageWidth) { IntArray(imageHeight) }
+        val itemsFound = HashSet<Int>()
+        inputBuffer.rewind()
+        val intValues = IntArray(imageWidth * imageHeight)
+
+        for (y in 0 until imageHeight) {
+            for (x in 0 until imageWidth) {
+                var maxVal = 0f
+/*                mSegmentBits[x][y] = 0
+                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
+                intValues[index] = (0xFF
+                    or ((inputBuffer[index * 3] * 255) shl 16)
+                    or ((inputBuffer[index * 3 + 1] * 255) shl 8)
+                    or (inputBuffer[index * 3 + 2] * 255) )
+                resultBitmap.setPixel(x, y, intValues[index])*/
+                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
+                val value = inputBuffer
+                    .getFloat(index * 4)
+                if (value <= 0) {
+                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
+                }
+
+            }
+        }
+
+/*        for (i in 0 until intValues.size) {
+            intValues[i] = (0xFF
+                or ((inputBuffer[i * 3] * 255) shl 16)
+                or ((inputBuffer[i * 3 + 1] * 255) shl 8)
+                or (inputBuffer[i * 3 + 2] * 255) )
+            if(intValues[i] > 0) {
+
+            }
+        }*/
+
+        //resultBitmap.setPixels(intValues, 0, imageWidth, 0, 0, imageWidth, imageWidth)
+
+
 
         return Triple(resultBitmap, resultBitmap, itemsFound)
     }
@@ -221,10 +279,11 @@ class ImageSegmentationModelExecutorCustom(
 
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "segm_model_v5_0065_default_16fp.tflite"
+        //private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
         const val NUM_CLASSES = 1
         private const val IMAGE_MEAN = 128.0f
-        private const val IMAGE_STD = 128.0f
+        private const val IMAGE_STD = 255.0f
 
         val segmentColors = IntArray(NUM_CLASSES)
         val labelsArrays = arrayOf(
@@ -236,7 +295,7 @@ class ImageSegmentationModelExecutorCustom(
         init {
             val random = Random(System.currentTimeMillis())
             segmentColors[0] = Color.TRANSPARENT
-            for (i in 1 until NUM_CLASSES) {
+            for (i in 0 until NUM_CLASSES-1) {
                 segmentColors[i] = Color.argb(
                     (128),
                     getRandomRGBInt(

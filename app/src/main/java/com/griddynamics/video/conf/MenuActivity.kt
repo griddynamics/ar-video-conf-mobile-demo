@@ -22,6 +22,7 @@ class MenuActivity : AppCompatActivity() {
     var btnFaceDetection: Button? = null
     var btnPalmDetection: Button? = null
     var btnCombined: Button? = null
+    var btnCustom: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +52,14 @@ class MenuActivity : AppCompatActivity() {
         btnCombined?.let {
             it.setOnClickListener {
                 val intent = Intent(this, VideoActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        btnCustom = findViewById(R.id.btn_custom)
+        btnCustom?.let {
+            it.setOnClickListener {
+                val intent = Intent(this, CustomModelActivity::class.java)
                 startActivity(intent)
             }
         }

@@ -7,4 +7,5 @@
     <string name="no_camera_access" translatable="false">Please grant camera permissions.</string>
     <string name="palm_detection">Palm detection</string>
     <string name="combined">Combined</string>
+    <string name="custom_model">Custom model</string>
 </resources>
