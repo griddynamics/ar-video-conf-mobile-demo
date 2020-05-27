@@ -2,6 +2,7 @@ package com.griddynamics.video.conf.tf
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
 import android.util.Log
 import com.google.android.gms.tasks.Task
@@ -45,7 +46,7 @@ class ImageSegmentationModelExecutorCustom(
         return Tasks.call(executorService, Callable {
             interpreter = getInterpreter(context, imageSegmentationModel, useGPU)
             segmentationMasks =
-                ByteBuffer.allocateDirect(1 * imageSize * imageSize * NUM_CLASSES * 4)
+                ByteBuffer.allocateDirect(imageSize * imageSize * 4)
             segmentationMasks!!.order(ByteOrder.nativeOrder())
             null
         })
@@ -95,8 +96,7 @@ class ImageSegmentationModelExecutorCustom(
             convertBytebufferMaskToBitmap(
                 segmentationMasks!!,
                 imageSize,
-                imageSize, scaledBitmap,
-                segmentColors
+                imageSize, scaledBitmap
             )
         maskFlatteningTime = SystemClock.uptimeMillis() - maskFlatteningTime
         Log.d(TAG, "Time to flatten the mask result $maskFlatteningTime")
@@ -175,21 +175,28 @@ class ImageSegmentationModelExecutorCustom(
         inputBuffer: ByteBuffer,
         imageWidth: Int,
         imageHeight: Int,
-        backgroundImage: Bitmap,
-        colors: IntArray
+        backgroundImage: Bitmap
     ): Triple<Bitmap, Bitmap, Set<Int>> {
         val conf = Bitmap.Config.ARGB_8888
         val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         val itemsFound = HashSet<Int>()
         inputBuffer.rewind()
+        val segmentColor = Color.argb(
+            (128),
+            0,
+            255,
+            0
+        )
 
         for (y in 0 until imageHeight) {
             for (x in 0 until imageWidth) {
-                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
+                val index = y * imageWidth + x
                 val value = inputBuffer
                     .getFloat(index * 4)
-                if (value <= 0) {
+                if (value <= 0.01) {
                     resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
+                } else {
+                    resultBitmap.setPixel(x, y, segmentColor)
                 }
             }
         }
@@ -201,15 +208,7 @@ class ImageSegmentationModelExecutorCustom(
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
-        const val NUM_CLASSES = 1
         private const val IMAGE_MEAN = 128.0f
         private const val IMAGE_STD = 255.0f
-
-        val segmentColors = IntArray(NUM_CLASSES)
-        val labelsArrays = arrayOf(
-            "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus",
-            "car", "cat", "chair", "cow", "dining table", "dog", "horse", "motorbike",
-            "person", "potted plant", "sheep", "sofa", "train", "tv"
-        )
     }
 }
