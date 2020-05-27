@@ -30,7 +30,7 @@ class ImageSegmentationModelExecutorCustom(
 ) {
     private var gpuDelegate: GpuDelegate? = null
 
-    private var segmentationMasks: ByteBuffer? = null
+    private var segmentationMask: ByteBuffer? = null
     private var interpreter: Interpreter? = null
 
     private var fullTimeExecutionTime = 0L
@@ -45,9 +45,9 @@ class ImageSegmentationModelExecutorCustom(
     fun initialize(): Task<Nothing?> {
         return Tasks.call(executorService, Callable {
             interpreter = getInterpreter(context, imageSegmentationModel, useGPU)
-            segmentationMasks =
+            segmentationMask =
                 ByteBuffer.allocateDirect(imageSize * imageSize * 4)
-            segmentationMasks!!.order(ByteOrder.nativeOrder())
+            segmentationMask!!.order(ByteOrder.nativeOrder())
             null
         })
     }
@@ -83,7 +83,7 @@ class ImageSegmentationModelExecutorCustom(
 
         imageSegmentationTime = SystemClock.uptimeMillis()
         try {
-            interpreter!!.run(contentArray, segmentationMasks)
+            interpreter!!.run(contentArray, segmentationMask)
         } catch (ex: Exception) {
             Log.e("MODEL_ERROR", ex.toString())
         }
@@ -94,7 +94,7 @@ class ImageSegmentationModelExecutorCustom(
         maskFlatteningTime = SystemClock.uptimeMillis()
         val (maskImageApplied, maskOnly, itemsFound) =
             convertBytebufferMaskToBitmap(
-                segmentationMasks!!,
+                segmentationMask!!,
                 imageSize,
                 imageSize, scaledBitmap
             )
@@ -191,9 +191,8 @@ class ImageSegmentationModelExecutorCustom(
         for (y in 0 until imageHeight) {
             for (x in 0 until imageWidth) {
                 val index = y * imageWidth + x
-                val value = inputBuffer
-                    .getFloat(index * 4)
-                if (value <= 0.01) {
+                val value = inputBuffer.getFloat(index * 4)
+                if (value <= 0.000005f) {
                     resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
                 } else {
                     resultBitmap.setPixel(x, y, segmentColor)
@@ -208,7 +207,7 @@ class ImageSegmentationModelExecutorCustom(
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
-        private const val IMAGE_MEAN = 128.0f
+        private const val IMAGE_MEAN = 0.0f
         private const val IMAGE_STD = 255.0f
     }
 }
