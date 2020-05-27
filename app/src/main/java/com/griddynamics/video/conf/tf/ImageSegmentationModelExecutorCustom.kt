@@ -2,10 +2,8 @@ package com.griddynamics.video.conf.tf
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.SystemClock
 import android.util.Log
-import androidx.core.graphics.ColorUtils
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import org.tensorflow.lite.Interpreter
@@ -19,23 +17,11 @@ import java.nio.channels.FileChannel
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.random.Random
-
-
-
-
 
 /**
  * Class responsible to run the Image Segmentation model.
  * more information about the DeepLab model being used can
- * be found here:
- * https://ai.googleblog.com/2018/03/semantic-image-segmentation-with.html
- * https://www.tensorflow.org/lite/models/segmentation/overview
- * https://github.com/tensorflow/models/tree/master/research/deeplab
- *
- * Label names: 'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
- * 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
- * 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tv'
+ * be found here
  */
 class ImageSegmentationModelExecutorCustom(
     private val context: Context,
@@ -106,7 +92,7 @@ class ImageSegmentationModelExecutorCustom(
 
         maskFlatteningTime = SystemClock.uptimeMillis()
         val (maskImageApplied, maskOnly, itemsFound) =
-            convertBytebufferMaskToBitmap1(
+            convertBytebufferMaskToBitmap(
                 segmentationMasks!!,
                 imageSize,
                 imageSize, scaledBitmap,
@@ -162,13 +148,13 @@ class ImageSegmentationModelExecutorCustom(
 
     private fun formatExecutionLog(): String {
         val sb = StringBuilder()
-        /*sb.append("Input Image Size: $imageSize x $imageSize\n")
+        sb.append("Input Image Size: $imageSize x $imageSize\n")
         sb.append("GPU enabled: $useGPU\n")
         sb.append("Number of threads: $numberThreads\n")
         sb.append("Pre-process execution time: $preprocessTime ms\n")
         sb.append("Model execution time: $imageSegmentationTime ms\n")
         sb.append("Mask flatten time: $maskFlatteningTime ms\n")
-        sb.append("Full execution time: $fullTimeExecutionTime ms\n")*/
+        sb.append("Full execution time: $fullTimeExecutionTime ms\n")
         return sb.toString()
     }
 
@@ -194,92 +180,26 @@ class ImageSegmentationModelExecutorCustom(
     ): Triple<Bitmap, Bitmap, Set<Int>> {
         val conf = Bitmap.Config.ARGB_8888
         val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
-        val mSegmentBits = Array(imageWidth) { IntArray(imageHeight) }
         val itemsFound = HashSet<Int>()
         inputBuffer.rewind()
 
         for (y in 0 until imageHeight) {
             for (x in 0 until imageWidth) {
-                var maxVal = 0f
-                mSegmentBits[x][y] = 0
-                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
-                for (c in 0 until NUM_CLASSES) {
-                    val value = inputBuffer
-                        .getFloat((index + c) * 4)
-                    if (c == 0 || value > maxVal) {
-                        maxVal = value
-                        mSegmentBits[x][y] = c
-                    }
-                }
-
-                if (mSegmentBits[x][y] != 0) {
-                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
-                }
-/*                if (colors[mSegmentBits[x][y]] != 0) {
-                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
-                }*/
-            }
-        }
-
-        return Triple(resultBitmap, resultBitmap, itemsFound)
-    }
-
-    private fun convertBytebufferMaskToBitmap1(
-        inputBuffer: ByteBuffer,
-        imageWidth: Int,
-        imageHeight: Int,
-        backgroundImage: Bitmap,
-        colors: IntArray
-    ): Triple<Bitmap, Bitmap, Set<Int>> {
-        val conf = Bitmap.Config.ARGB_8888
-        val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
-        val mSegmentBits = Array(imageWidth) { IntArray(imageHeight) }
-        val itemsFound = HashSet<Int>()
-        inputBuffer.rewind()
-        val intValues = IntArray(imageWidth * imageHeight)
-
-        for (y in 0 until imageHeight) {
-            for (x in 0 until imageWidth) {
-                var maxVal = 0f
-/*                mSegmentBits[x][y] = 0
-                val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
-                intValues[index] = (0xFF
-                    or ((inputBuffer[index * 3] * 255) shl 16)
-                    or ((inputBuffer[index * 3 + 1] * 255) shl 8)
-                    or (inputBuffer[index * 3 + 2] * 255) )
-                resultBitmap.setPixel(x, y, intValues[index])*/
                 val index = y * imageWidth * NUM_CLASSES + x * NUM_CLASSES
                 val value = inputBuffer
                     .getFloat(index * 4)
                 if (value <= 0) {
                     resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
                 }
-
             }
         }
-
-/*        for (i in 0 until intValues.size) {
-            intValues[i] = (0xFF
-                or ((inputBuffer[i * 3] * 255) shl 16)
-                or ((inputBuffer[i * 3 + 1] * 255) shl 8)
-                or (inputBuffer[i * 3 + 2] * 255) )
-            if(intValues[i] > 0) {
-
-            }
-        }*/
-
-        //resultBitmap.setPixels(intValues, 0, imageWidth, 0, 0, imageWidth, imageWidth)
-
-
-
         return Triple(resultBitmap, resultBitmap, itemsFound)
     }
 
     companion object {
 
         private const val TAG = "ImageSegmentationMExec"
-        private const val imageSegmentationModel = "segm_model_v5_0065_default_16fp.tflite"
-        //private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
+        private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
         const val NUM_CLASSES = 1
         private const val IMAGE_MEAN = 128.0f
@@ -291,26 +211,5 @@ class ImageSegmentationModelExecutorCustom(
             "car", "cat", "chair", "cow", "dining table", "dog", "horse", "motorbike",
             "person", "potted plant", "sheep", "sofa", "train", "tv"
         )
-
-        init {
-            val random = Random(System.currentTimeMillis())
-            segmentColors[0] = Color.TRANSPARENT
-            for (i in 0 until NUM_CLASSES-1) {
-                segmentColors[i] = Color.argb(
-                    (128),
-                    getRandomRGBInt(
-                        random
-                    ),
-                    getRandomRGBInt(
-                        random
-                    ),
-                    getRandomRGBInt(
-                        random
-                    )
-                )
-            }
-        }
-
-        private fun getRandomRGBInt(random: Random) = (255 * random.nextFloat()).toInt()
     }
 }
