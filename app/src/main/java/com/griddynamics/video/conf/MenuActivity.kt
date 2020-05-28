@@ -23,6 +23,7 @@ class MenuActivity : AppCompatActivity() {
     var btnPalmDetection: Button? = null
     var btnCombined: Button? = null
     var btnCustom: Button? = null
+    var btnStatic: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +61,14 @@ class MenuActivity : AppCompatActivity() {
         btnCustom?.let {
             it.setOnClickListener {
                 val intent = Intent(this, CustomModelActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        btnStatic = findViewById(R.id.btn_static_analyzer)
+        btnStatic?.let {
+            it.setOnClickListener {
+                val intent = Intent(this, StaticAnalyzerActivity::class.java)
                 startActivity(intent)
             }
         }

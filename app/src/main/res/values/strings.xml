@@ -8,4 +8,5 @@
     <string name="palm_detection">Palm detection</string>
     <string name="combined">Combined</string>
     <string name="custom_model">Custom model</string>
+    <string name="static_analyzer">Static analyzer</string>
 </resources>
