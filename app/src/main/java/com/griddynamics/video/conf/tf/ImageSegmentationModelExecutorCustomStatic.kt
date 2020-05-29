@@ -194,7 +194,7 @@ class ImageSegmentationModelExecutorCustomStatic(
             for (x in 0 until imageWidth) {
                 val index = y * imageWidth + x
                 val value = inputBuffer.getFloat(index*4)
-                if (value <= 0.000005f) {
+                if (value <= 0.0f) {
                     val newPixelColor = ColorUtils.compositeColors(
                         segmentColor,
                         backgroundImage.getPixel(x, y)
@@ -214,7 +214,7 @@ class ImageSegmentationModelExecutorCustomStatic(
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
-        private const val IMAGE_MEAN = 0.0f
+        private const val IMAGE_MEAN = 128.0f
         private const val IMAGE_STD = 255.0f
     }
 }
