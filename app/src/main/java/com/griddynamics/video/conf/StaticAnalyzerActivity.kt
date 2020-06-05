@@ -83,7 +83,7 @@ class StaticAnalyzerActivity : AppCompatActivity(), CameraFragment.OnCaptureFini
 
     override fun onResume() {
         super.onResume()
-        imageSegmentation = ImageSegmentationModelExecutorStatic(this, true)
+        imageSegmentation = ImageSegmentationModelExecutorStatic(this, false)
         imageSegmentation?.initialize()
             ?.addOnSuccessListener {
                 txtInitializing.visibility = View.GONE
@@ -96,7 +96,7 @@ class StaticAnalyzerActivity : AppCompatActivity(), CameraFragment.OnCaptureFini
                 }
             }
 
-        imageSegmentationCustomStatic = ImageSegmentationModelExecutorCustomStatic(this, true)
+        imageSegmentationCustomStatic = ImageSegmentationModelExecutorCustomStatic(this, false)
         imageSegmentationCustomStatic?.initialize()
             ?.addOnSuccessListener {
                 captureButton.visibility = View.VISIBLE
@@ -165,7 +165,7 @@ class StaticAnalyzerActivity : AppCompatActivity(), CameraFragment.OnCaptureFini
             val bm = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
             val result = imageSegmentation.execute(bm)
             updateUIWithResults(result)
-            val resultStatic = imageSegmentationCustomStatic.execute(bm)
+            val resultStatic = imageSegmentationCustomStatic.execute(bm, this@StaticAnalyzerActivity)
             updateCustomUIWithResults(resultStatic)
         }
     }

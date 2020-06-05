@@ -165,6 +165,43 @@ abstract class ImageUtils {
             inputImage.rewind()
             return inputImage
         }
+
+        fun bitmapToNormalizedArray(
+            bitmapIn: Bitmap,
+            width: Int,
+            height: Int,
+            mean: Float = 0.0f,
+            std: Float = 255.0f
+        ): Array<Array<Array<FloatArray>>> {
+            val bitmap = scaleBitmapAndKeepRatio(bitmapIn, width, height)
+            val arr = Array(1) { Array(width) { Array(width) { FloatArray(3)} } }
+            val inputImage = ByteBuffer.allocateDirect(1 * width * height * 3 * 4)
+            inputImage.order(ByteOrder.nativeOrder())
+            inputImage.rewind()
+
+            val intValues = IntArray(width * height)
+            bitmap.getPixels(intValues, 0, width, 0, 0, width, height)
+            var pixel = 0
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val value = intValues[pixel++]
+
+                    // Normalize channel values to [-1.0, 1.0]. This requirement varies by
+                    // model. For example, some models might require values to be normalized
+                    // to the range [0.0, 1.0] instead.
+/*                    if((((value shr 16 and 0xFF) - mean) / std) < 0 || (((value shr 8 and 0xFF) - mean) / std) < 0 || (((value and 0xFF) - mean) / std) < 0) {
+                        throw Exception("Normalize")
+                    }*/
+                    arr[0][y][x][0] = ((value shr 16 and 0xFF) - mean) / std
+                    arr[0][y][x][1] = ((value shr 8 and 0xFF) - mean) / std
+                    arr[0][y][x][2] = ((value and 0xFF) - mean) / std
+                }
+            }
+
+            inputImage.rewind()
+
+            return arr
+        }
         fun bitmapToByteBuffer1(
             bitmapIn: Bitmap,
             width: Int,

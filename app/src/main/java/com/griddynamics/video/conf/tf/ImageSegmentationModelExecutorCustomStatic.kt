@@ -8,6 +8,8 @@ import android.util.Log
 import androidx.core.graphics.ColorUtils
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
+import com.griddynamics.video.conf.FileDumpUtl
+import com.griddynamics.video.conf.tf.ImageUtils.Companion.bitmapToNormalizedArray
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
@@ -53,16 +55,14 @@ class ImageSegmentationModelExecutorCustomStatic(
         })
     }
 
-    fun executeAsync(bitmap: Bitmap): Task<ModelExecutionResult> {
-        return Tasks.call(executorService, Callable { execute(bitmap) })
-    }
-
     /**
      * Use this method with executorService. Otherwise GpuDelegate will cause exception
      */
     @Throws(Exception::class)
-    fun execute(bitmap: Bitmap): ModelExecutionResult {
+    fun execute(bitmap: Bitmap, context: Context): ModelExecutionResult {
         fullTimeExecutionTime = SystemClock.uptimeMillis()
+
+        val fileDumpUtl = FileDumpUtl()
 
         preprocessTime = SystemClock.uptimeMillis()
         val scaledBitmap =
@@ -72,7 +72,7 @@ class ImageSegmentationModelExecutorCustomStatic(
                 imageSize
             )
 
-        val contentArray =
+        val contentArrayNormalized1_1 =
             ImageUtils.bitmapToByteBuffer(
                 scaledBitmap,
                 imageSize,
@@ -80,11 +80,45 @@ class ImageSegmentationModelExecutorCustomStatic(
                 IMAGE_MEAN,
                 IMAGE_STD
             )
+
+        val origBuffer = ByteBuffer.allocate(bitmap.byteCount)
+        bitmap.copyPixelsToBuffer(origBuffer)
+        fileDumpUtl.dumpBytes(context, origBuffer.array(), "origBitmap")
+        val scaledBuffer = ByteBuffer.allocate(scaledBitmap.byteCount)
+        scaledBitmap.copyPixelsToBuffer(scaledBuffer)
+        fileDumpUtl.dumpBytes(context, scaledBuffer.array() , "scaledBitmap")
+        fileDumpUtl.dumpBytes(context, contentArrayNormalized1_1.array() , "normalized1_1Bitmap")
+
         preprocessTime = SystemClock.uptimeMillis() - preprocessTime
 
         imageSegmentationTime = SystemClock.uptimeMillis()
         try {
-            interpreter!!.run(contentArray, segmentationMask)
+            val arr = bitmapToNormalizedArray(
+                scaledBitmap,
+                imageSize,
+                imageSize
+            )
+            interpreter!!.run(contentArrayNormalized1_1, segmentationMask)
+            //interpreter!!.run(arr, segmentationMask)
+            fileDumpUtl.dumpBytes(context, segmentationMask!!.array(), "maskCustom1_1Bitmap")
+        } catch (ex: Exception) {
+            Log.e("MODEL_ERROR", ex.toString())
+        }
+
+        val contentArrayNormalized0_1 =
+            ImageUtils.bitmapToByteBuffer(
+                scaledBitmap,
+                imageSize,
+                imageSize
+            )
+        fileDumpUtl.dumpBytes(context, contentArrayNormalized0_1.array() , "normalized0_1Bitmap")
+
+        try {
+            val segmentationMask0_1 =
+                ByteBuffer.allocateDirect(imageSize * imageSize * 4)
+            segmentationMask0_1.order(ByteOrder.nativeOrder())
+            interpreter!!.run(contentArrayNormalized0_1, segmentationMask0_1)
+            fileDumpUtl.dumpBytes(context, segmentationMask0_1.array(), "maskCustom0_1Bitmap")
         } catch (ex: Exception) {
             Log.e("MODEL_ERROR", ex.toString())
         }
