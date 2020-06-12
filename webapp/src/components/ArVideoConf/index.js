@@ -1,2 +1,2 @@
-import ArVideoConf from './ArVideoConf3';
+import ArVideoConf from './ArVideoConf';
 export default ArVideoConf;

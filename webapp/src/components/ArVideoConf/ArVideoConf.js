@@ -1,229 +1,186 @@
-import React from 'react';
+import React, { useState, useEffect }  from 'react';
 import * as tf from '@tensorflow/tfjs';
 import beach from '../../assets/beach.jpg';
-import landscape from '../../assets/landscape.jpg';
-import {container, center, slider, canvas, settings, debugClose} from './ArVideoConf.module.scss';
+import {container, center, slider, canvas, settings} from './ArVideoConf.module.scss';
 import ClipLoader from "react-spinners/ClipLoader";
 import {Slider, IconButton, Tooltip} from "@material-ui/core";
 import PhotoLibraryIcon from '@material-ui/icons/PhotoLibrary';
 import BugReportIcon from '@material-ui/icons/BugReport';
 import CloseIcon from '@material-ui/icons/Close';
+import DebugPanel from '../DebugPanel/DebugPanel';
+import { useModel } from '../../hooks/useModel';
+import { useMediaStream } from '../../hooks/useMediaStream';
+import {TensorDisplay, disposeIfSet, DebugStats} from '../../util';
+import {MODEL_INPUT_WIDTH,MODEL_INPUT_HEIGHT,VIDEO_WIDTH,VIDEO_HEIGHT} from '../../constants';
 
-const MODEL_PATH = `${window.location.protocol}//${window.location.host}/tfjs/cmd/model.json`;
+const tensorDisplay = new TensorDisplay(VIDEO_WIDTH, VIDEO_HEIGHT);
+const debugStats = new DebugStats(100);
+const SKIP_FRAMES_COUNT = 4;
 
-const MODEL_INPUT_WIDTH = 256;
-const MODEL_INPUT_HEIGHT = 256;
-const VIDEO_WIDTH = 848;
-const VIDEO_HEIGHT = 480;
+const ArVideoConf = () => {
+    const [loading, setLoading] = useState(true);
+    const [opacity, setOpacity] = useState(0.5);
+    const [debug, setDebug]= useState(false);
+    const [debugInput, setDebugInput] = useState([]);
+    const [backgroundImgSrc, setBackgroundImgSrc] = useState(beach);
 
-const video = document.createElement('video');
+    const videoRef = React.useRef();
+    const canvasRef = React.useRef();
+    const sliderValueRef = React.useRef(opacity);
+    const debugRef = React.useRef(debug);
 
-const backgroundImg = new Image();
-const backgroundCanvas = document.createElement('canvas');
-const backgroundCanvasCtx = backgroundCanvas.getContext('2d');
+    const backgroundImageRef = React.useRef();
+    const backgroundTensorRef = React.useRef();
 
-const displayRenderCanvas = document.createElement('canvas');
-displayRenderCanvas.width = VIDEO_WIDTH;
-displayRenderCanvas.height = VIDEO_HEIGHT;
+    const mediaStream = useMediaStream();
+    const model = useModel();
 
-const displayRenderCanvasCtx = displayRenderCanvas.getContext('2d');
+    useEffect(() => {
+      if(mediaStream && videoRef.current && !videoRef.current.srcObject){
+        videoRef.current.srcObject = mediaStream;
+      }
+    }, [videoRef, mediaStream]);
 
-const debugRenderCanvas = document.createElement('canvas');
-debugRenderCanvas.width = MODEL_INPUT_WIDTH;
-debugRenderCanvas.height = MODEL_INPUT_HEIGHT;
-const debugRenderCanvasCtx = debugRenderCanvas.getContext('2d');
+    useEffect(() => {
+      const onload = () => {
+        disposeIfSet(backgroundTensorRef.current);
+        backgroundTensorRef.current = tf.tidy(() => 
+          tf.browser.fromPixels(backgroundImageRef.current).div(tf.scalar(255.0))
+        );
+      } 
+      backgroundImageRef.current = new Image(VIDEO_WIDTH, VIDEO_HEIGHT);
+      backgroundImageRef.current.crossOrigin = "Anonymous";
+      backgroundImageRef.current.addEventListener("load", onload);
 
+      return () => {
+        backgroundImageRef.current.removeEventListener("load", onload);
+      }
 
-class ArVideoConf extends React.Component{
-    constructor(){
-      super();
-      this.state = {
-        loading: true,
-        opaque: 1.0,
-        debug: false
-      };
-    }
-    canvasRef = React.createRef();
+    },[]);
 
-    canvasDebugInputRef = React.createRef();
-    canvasDebugMaskRef = React.createRef();
-    canvasDebugOutputRef = React.createRef();
-    
-    backgroundTensor;
-    backgroundChanged = true;
-    videoBackgroundTensor;
-    scaledMask;
-    frameCnt = 5;
-    previousSegmentationComplete=true;
+    useEffect(()=> {
+      backgroundImageRef.current.src = backgroundImgSrc;
+    }, [backgroundImgSrc]);
 
-    displayTime = [];
-    predictionTime = [];
-    debug = false;
+    let previousSegmentationComplete = true;
+    let frameCnt = SKIP_FRAMES_COUNT + 1;
 
-    componentDidMount() {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            this.backgroundSetup();
-            const webCamPromise = navigator.mediaDevices
-              .getUserMedia({
-                audio: false,
-                video: {
-                  facingMode: "user",
-                  width: { ideal: VIDEO_WIDTH},
-                  height: { ideal: VIDEO_HEIGHT}
-                }
-              })
-              .then(stream => {
-                video.srcObject = stream;
-                return new Promise((resolve, _) => {
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        resolve();
-                  };
-                });
-              });
+    let videoBackgroundTensor;
+    let scaledMask;
 
-            const modelPromise = tf.loadLayersModel(MODEL_PATH, {strict:false});
-            Promise.all([modelPromise, webCamPromise])
-              .then(values => {
-                this.fitCanvasToContainer();
-                console.log(values[0]);
-                this.predictWebCam(values[0]);
+    const predictWebCam = async () => {
+      if(previousSegmentationComplete){
+        const ts = performance.now();
+        previousSegmentationComplete=false;
 
-                this.setState({loading: false});
-              })
-              .catch(error => {
-                console.error(error);
-              });
+        const input = tf.tidy(()=> tf.browser.fromPixels(videoRef.current).div(tf.scalar(255.0)));            
+
+        if(++frameCnt > SKIP_FRAMES_COUNT){
+          updateScaledMask(input);
+          updateVirtualBeackgroundTensor();
+          frameCnt = 0;
+
+          if(debugRef.current){
+            setDebugInput([input, scaledMask, debugStats.summary()]);
+            debugRef.current = false;
           }
-    }
-    
-    predictWebCam = async (model) => {
-      
-        if(this.backgroundChanged){
-          this.backgroundTensor = tf.browser.fromPixels(backgroundCanvas).div(tf.scalar(255.0));
-          this.backgroundChanged = false;
-          this.predictWebCam(model);
         }
 
-        if(this.previousSegmentationComplete){
-          this.previousSegmentationComplete=false;
-          const input = tf.tidy(()=> tf.browser.fromPixels(video).div(tf.scalar(255.0)));            
+        const img = tf.tidy(()=> {
+          const foregroundTesnor = input.mul(scaledMask);
+          return foregroundTesnor.add(videoBackgroundTensor).mul(tf.scalar(255));
+        });
 
-          if(++this.frameCnt > 4){
-            if(this.scaledMask) this.scaledMask.dispose();
-            this.scaledMask = tf.tidy(()=> {
-              const modelInput = tf.image.resizeBilinear(input, [MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT]);
-              const x = modelInput.expandDims(0);
-              const y = model.predict(x);
-              const mask = y.reshape([MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, 1]).mul(tf.scalar(this.state.opaque));
-              
-              const GB = tf.fill([MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, 2],255, 'int32');
-              const R = tf.ones([MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, 1]).sub(mask).mul(tf.scalar(255));
-              const maskImg = tf.concat([R,GB], 2);
-
-              if(this.debug){
-                toPixelsSync(modelInput.mul(tf.scalar(255)), this.canvasDebugInputRef.current);
-                toPixelsSync(maskImg, this.canvasDebugMaskRef.current);
-                toPixelsSync(modelInput.mul(tf.scalar(255)), this.canvasDebugOutputRef.current);
-                toPixelsSync(maskImg, this.canvasDebugOutputRef.current, 0.5);
-                
-                this.debug = false;
-              }
-
-              return tf.image.resizeBilinear(mask, [VIDEO_HEIGHT, VIDEO_WIDTH]);
-            });
-
-            if(this.videoBackgroundTensor) this.videoBackgroundTensor.dispose();
-            this.videoBackgroundTensor = tf.tidy(()=> { 
-              const ones = tf.ones([VIDEO_HEIGHT, VIDEO_WIDTH, 1]);
-              const bacgroundMask = ones.sub(this.scaledMask);
-              return bacgroundMask.mul(this.backgroundTensor);
-            });
-            
-            this.frameCnt = 0;
-          }
-
-          const img = tf.tidy(()=> {
-            const foregroundTesnor = input.mul(this.scaledMask);
-            return foregroundTesnor.add(this.videoBackgroundTensor).mul(tf.scalar(255));
-          });
-
-          const t0 = performance.now();
-          //await tf.browser.toPixels(img, this.canvasRef.current);
-          await toPixels(img, this.canvasRef.current);
-          const t1 = performance.now();
-          
-          const td = t1 - t0;
-          this.frameCnt === 0 ? this.predictionTime.push(td)
-                              : this.displayTime.push(td);
-
-          if(this.displayTime.length === 100){
-            const dt = this.displayTime.reduce((a,c) => a + c)/this.displayTime.length;
-            const pt = this.predictionTime.reduce((a,c) => a + c)/this.predictionTime.length - dt;
-            
-            console.log("display time: ", dt);
-            console.log("prediction time: ", pt);
+        const t0 = performance.now();
+        //await tf.browser.toPixels(img, canvasRef.current);     
+        await tensorDisplay.show(img, canvasRef.current);
+        const t1 = performance.now();
         
-            this.predictionTime = [];
-            this.displayTime = [];
-          }
+        const td = t1 - t0;
+        frameCnt === 0 ? debugStats.storePredictionTime(td) : debugStats.storeDisplayTime(td);
 
-          tf.dispose([input, img]);
-          this.previousSegmentationComplete=true;
-          requestAnimationFrame(() => this.predictWebCam(model));
-        }
+        tf.dispose([input, img]);
+        previousSegmentationComplete=true;
+
+        const te = performance.now();
+        debugStats.storeOverallTime(te-ts);
+
+        requestAnimationFrame(predictWebCam);
       }
+    }
     
-    backgroundSetup = () => {
-      backgroundCanvas.width = VIDEO_WIDTH;
-      backgroundCanvas.height = VIDEO_HEIGHT;
-      backgroundImg.src = beach;
-      backgroundImg.onload = () => {
-        backgroundCanvasCtx.drawImage(backgroundImg, 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
-        this.backgroundChanged = true;
-      }
+    const onLoadedData = () => {
+      fitCanvasToContainer();
+      predictWebCam();
+      setLoading(false);
     }
 
-    fitCanvasToContainer(){
-      this.canvasRef.current.style.width='100%';
-      this.canvasRef.current.width  = this.canvasRef.current.offsetWidth;
-      this.canvasRef.current.height = this.canvasRef.current.offsetWidth * VIDEO_HEIGHT / VIDEO_WIDTH;
+    const fitCanvasToContainer = () => {
+      canvasRef.current.style.width='100%';
+      canvasRef.current.width  = canvasRef.current.offsetWidth;
+      canvasRef.current.height = canvasRef.current.offsetWidth * VIDEO_HEIGHT / VIDEO_WIDTH;
     }
 
-    changeBackground = () => {
-      let img = backgroundImg.src.endsWith(landscape) ? beach : landscape;
-      backgroundImg.src = img;
+    const changeBackground = () => {
+      fetch(`https://picsum.photos/${VIDEO_WIDTH}/${VIDEO_HEIGHT}`)
+      .then(data => {
+        setBackgroundImgSrc(data.url);
+      })
+      .catch(error => 
+        console.error("Loading background image faild!", error)
+      );
+    } 
+
+    const changeOpacity = (_, val) => {
+        setOpacity(val);
+        sliderValueRef.current = val;
     }
 
-    changeOpaque = (_, val) => {
-      this.setState({opaque: val});
+    const updateScaledMask = (input) => {
+      disposeIfSet(scaledMask);
+      scaledMask = tf.tidy(()=> {
+        const x = tf.image.resizeBilinear(input, [MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH]).expandDims(0);
+        const y = model.predict(x);
+        const mask = y.reshape([MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, 1]).mul(tf.scalar(sliderValueRef.current))
+        return tf.image.resizeBilinear(mask, [VIDEO_HEIGHT, VIDEO_WIDTH]);
+      });
+    };
+
+    const updateVirtualBeackgroundTensor = () => {
+      disposeIfSet(videoBackgroundTensor);
+      videoBackgroundTensor = tf.tidy(()=> { 
+        const ones = tf.ones([VIDEO_HEIGHT, VIDEO_WIDTH, 1]);
+        const backgroundMask = ones.sub(scaledMask);
+        return backgroundMask.mul(backgroundTensorRef.current);
+      });
+    };
+
+    const showDebug = () => {
+      setDebug(true);
+      debugRef.current = true;
     }
 
-    showDebug = () => {
-      this.debug = true;
-      this.setState({debug:true});
+    const closeDebug = () => {
+      setDebug(false);
+      setDebugInput([]);
     }
 
-    closeDebug = () => {
-      this.setState({debug:false});
-    }
-
-    render() {
-        return (
-          <div className={container}>
+    return (
+        <div className={container}>
+            <video ref={videoRef} style={{display: "none"}} autoPlay onLoadedData={onLoadedData}></video>
             <div className={center}>               
-              <ClipLoader
+               <ClipLoader
                 size={100}
-                loading={this.state.loading}
+                loading={loading}
               />
             </div>
             <div className={canvas}>
-                <canvas ref={this.canvasRef} />
-                <div hidden={this.state.loading}>
+                <canvas ref={canvasRef} />
+                <div hidden={loading}>
                   <div className={settings}>
                     <div>
                       <Tooltip title="Change Background">
-                        <IconButton color="primary" onClick={this.changeBackground}>
+                        <IconButton color="primary" onClick={changeBackground}>
                           <PhotoLibraryIcon/>
                         </IconButton>
                       </Tooltip>
@@ -233,14 +190,14 @@ class ArVideoConf extends React.Component{
                       <Tooltip title="Opacity">
                         <Slider 
                           orientation="vertical" 
-                          min={0.0} max={1.0} step={0.01} 
-                          value={this.state.opaque} onChange={this.changeOpaque}  />
+                          min={0.0} max={1.0} step={0.01}
+                          value={opacity} onChange={changeOpacity}  />
                       </Tooltip>
                     </div>
 
                     <div> 
                       <Tooltip title="Debug">
-                      <IconButton color="primary" onClick={this.showDebug}>
+                      <IconButton color="primary" onClick={showDebug}>
                           <BugReportIcon/>
                         </IconButton>
                       </Tooltip>
@@ -248,56 +205,18 @@ class ArVideoConf extends React.Component{
                 </div>
               </div>
             </div>
-            
-            <div hidden={!this.debug} >
-              <div className={debugClose}>
+            {debug &&
+              <div>
                 <Tooltip title="Close Debug">
-                  <IconButton color="primary" onClick={this.closeDebug}>
+                  <IconButton color="primary" onClick={closeDebug}>
                     <CloseIcon/>
                   </IconButton>
                 </Tooltip>
-              </div>
-              <canvas ref={this.canvasDebugInputRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} /> 
-              <canvas ref={this.canvasDebugMaskRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} /> 
-              <canvas ref={this.canvasDebugOutputRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} />
-            </div>
+                <DebugPanel input={debugInput}/>
+              </div> 
+            }
           </div>
-        );
-      }
+    );
 }
 
-async function toPixels(tensor, canvas){     
-  const [height, width] = tensor.shape.slice(0, 2);
-  const alpha = tf.fill([height, width, 1],255, 'int32');
-
-  const rgba = tf.concat([tensor, alpha], 2);
-  
-  const bytes = await rgba.data();
-  tf.dispose([alpha, rgba]);
-  
-  const pixelData = new Uint8ClampedArray(bytes);
-  const imageData = new ImageData(pixelData, width, height);
-  
-  displayRenderCanvasCtx.putImageData(imageData, 0, 0);
-
-  const ctx = canvas.getContext('2d');  
-  ctx.drawImage(displayRenderCanvas, 0, 0,  canvas.width, canvas.height);
-}
-
-function toPixelsSync(tensor, canvas, opacity = 1){     
-  const [height, width] = tensor.shape.slice(0, 2);
-  const alpha = tf.fill([height, width, 1], opacity * 255, 'int32');
-  const rgba = tf.concat([tensor, alpha], 2);
-  
-  const bytes = rgba.dataSync();
-  tf.dispose([alpha, rgba]);
-
-  const pixelData = new Uint8ClampedArray(bytes);
-  const imageData = new ImageData(pixelData, width, height);
-  
-  debugRenderCanvasCtx.putImageData(imageData, 0, 0);
-
-  const ctx = canvas.getContext('2d');  
-  ctx.drawImage(debugRenderCanvas, 0, 0,  canvas.width, canvas.height);
-}
 export default ArVideoConf;
