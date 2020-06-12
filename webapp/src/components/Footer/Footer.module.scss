@@ -1,0 +1,21 @@
+@import '../../styles/variables.scss';
+
+.footer {
+  text-align: center;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  left: 0;
+}
+
+.legal {
+  color: $gray;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+@media only screen and (max-device-width: $iPhone11-width) {
+  .legal {
+    margin-left: 0;
+  }
+}

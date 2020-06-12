@@ -1,0 +1,47 @@
+@import './styles/variables.scss';
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Source Sans Pro;
+  font-style: normal;
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 30px;
+}
+
+.pageWrap {
+  margin: 24px 24px 30px;
+}
+
+.pageContent {
+  margin: 0 auto;
+  max-width: $desktopWidth;
+}
+
+.row {
+  display: flex;
+  &-centered-x {
+    justify-content: center;
+    text-align: center;
+  }
+  &-centered-y {
+    align-items: center;
+    height: calc(100vh - #{$header-height});
+  }
+}
+
+.unstyledLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+@media only screen and (max-device-width: $iPhone11-width) {
+  .pageWrap {
+    margin: 10px 20px 20px;
+  }
+
+  .pageContent {
+    width: auto;
+  }
+}

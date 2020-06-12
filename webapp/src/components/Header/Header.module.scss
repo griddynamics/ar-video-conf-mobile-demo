@@ -1,0 +1,36 @@
+@import '../../styles/variables.scss';
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+
+  @media only screen and (max-device-width: $iPhone11-width) {
+    justify-content: center;
+  }
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+}
+
+.logoImg {
+  width: 151px;
+}
+
+.title {
+  font-weight: 600;
+  width: 118px;
+  line-height: 22px;
+  margin-left: 17px;
+  padding-left: 17px;
+  border-left: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.demoLink {
+  text-decoration: none;
+  color: $black;
+} 
