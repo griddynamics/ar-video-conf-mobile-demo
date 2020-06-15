@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import * as tf from '@tensorflow/tfjs';
+import {container} from './DebugPanel.module.scss';
 import {TensorDisplay} from '../../util';
 import {MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT} from '../../constants';
 
@@ -38,7 +39,7 @@ const DebugPanel = (props) => {
     }
 
     return (
-    <div>
+    <div className={container}>
         <canvas ref={canvasDebugInputRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} /> 
         <canvas ref={canvasDebugMaskRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} /> 
         <canvas ref={canvasDebugOutputRef} width={MODEL_INPUT_WIDTH} height={MODEL_INPUT_HEIGHT} />

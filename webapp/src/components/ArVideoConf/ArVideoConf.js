@@ -1,8 +1,8 @@
 import React, { useState, useEffect }  from 'react';
 import * as tf from '@tensorflow/tfjs';
 import beach from '../../assets/beach.jpg';
-import {container, center, slider, canvas, settings} from './ArVideoConf.module.scss';
-import ClipLoader from "react-spinners/ClipLoader";
+import {container, center, slider, canvas, settings, backgroundSettings, backgroundProgress} from './ArVideoConf.module.scss';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import {Slider, IconButton, Tooltip} from "@material-ui/core";
 import PhotoLibraryIcon from '@material-ui/icons/PhotoLibrary';
 import BugReportIcon from '@material-ui/icons/BugReport';
@@ -19,6 +19,7 @@ const SKIP_FRAMES_COUNT = 4;
 
 const ArVideoConf = () => {
     const [loading, setLoading] = useState(true);
+    const [backgroundLoading, setBackgroundLoading] = useState(false);
     const [opacity, setOpacity] = useState(0.5);
     const [debug, setDebug]= useState(false);
     const [debugInput, setDebugInput] = useState([]);
@@ -47,6 +48,7 @@ const ArVideoConf = () => {
         backgroundTensorRef.current = tf.tidy(() => 
           tf.browser.fromPixels(backgroundImageRef.current).div(tf.scalar(255.0))
         );
+        setBackgroundLoading(false);
       } 
       backgroundImageRef.current = new Image(VIDEO_WIDTH, VIDEO_HEIGHT);
       backgroundImageRef.current.crossOrigin = "Anonymous";
@@ -122,13 +124,15 @@ const ArVideoConf = () => {
     }
 
     const changeBackground = () => {
+      setBackgroundLoading(true);
       fetch(`https://picsum.photos/${VIDEO_WIDTH}/${VIDEO_HEIGHT}`)
       .then(data => {
         setBackgroundImgSrc(data.url);
       })
-      .catch(error => 
+      .catch(error => {
+        setBackgroundLoading(false);
         console.error("Loading background image faild!", error)
-      );
+      });
     } 
 
     const changeOpacity = (_, val) => {
@@ -168,22 +172,20 @@ const ArVideoConf = () => {
     return (
         <div className={container}>
             <video ref={videoRef} style={{display: "none"}} autoPlay onLoadedData={onLoadedData}></video>
-            <div className={center}>               
-               <ClipLoader
-                size={100}
-                loading={loading}
-              />
+            <div className={center}>   
+              {loading && <CircularProgress size={100} />}           
             </div>
             <div className={canvas}>
                 <canvas ref={canvasRef} />
                 <div hidden={loading}>
                   <div className={settings}>
-                    <div>
+                    <div className={backgroundSettings}>
                       <Tooltip title="Change Background">
-                        <IconButton color="primary" onClick={changeBackground}>
+                        <IconButton disabled={backgroundLoading} color="primary" onClick={changeBackground}>
                           <PhotoLibraryIcon/>
                         </IconButton>
                       </Tooltip>
+                      {backgroundLoading && <CircularProgress size={50} className={backgroundProgress}/>}
                     </div>
                     
                     <div className={slider}>
@@ -191,7 +193,7 @@ const ArVideoConf = () => {
                         <Slider 
                           orientation="vertical" 
                           min={0.0} max={1.0} step={0.01}
-                          value={opacity} onChange={changeOpacity}  />
+                          value={opacity} onChange={changeOpacity} />
                       </Tooltip>
                     </div>
 

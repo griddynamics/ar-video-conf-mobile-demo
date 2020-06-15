@@ -38,3 +38,14 @@
   display: inline;
   vertical-align: top;
 }
+
+.backgroundSettings{
+  position: relative;
+}
+
+.backgroundProgress{
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}

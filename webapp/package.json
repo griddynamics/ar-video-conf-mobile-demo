@@ -5,21 +5,14 @@
   "dependencies": {
     "@material-ui/core": "^4.9.14",
     "@material-ui/icons": "^4.9.1",
-    "@tensorflow-models/handpose": "0.0.3",
     "@tensorflow/tfjs": "^1.7.4",
     "@tensorflow/tfjs-backend-wasm": "^1.7.4",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
-    "fingerpose": "0.0.2",
-    "konva": "^4.2.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
-    "react-router-dom": "^5.2.0",
-    "react-scripts": "3.4.1",
-    "react-spinners": "^0.8.3",
-    "rxjs": "^6.5.5",
-    "video-react": "^0.14.1"
+    "react-scripts": "3.4.1"
   },
   "scripts": {
     "wasm": "cp node_modules/@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm.wasm ./public",
