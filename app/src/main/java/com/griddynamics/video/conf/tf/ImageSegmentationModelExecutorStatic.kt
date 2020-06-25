@@ -91,7 +91,7 @@ class ImageSegmentationModelExecutorStatic(
         preprocessTime = SystemClock.uptimeMillis() - preprocessTime
 
         imageSegmentationTime = SystemClock.uptimeMillis()
-        interpreter!!.run(contentArray, segmentationMasks)
+      //  interpreter!!.run(contentArray, segmentationMasks)
         imageSegmentationTime = SystemClock.uptimeMillis() - imageSegmentationTime
         Log.d(TAG, "Time to run the model $imageSegmentationTime")
 
@@ -227,7 +227,7 @@ class ImageSegmentationModelExecutorStatic(
 
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "deeplabv3_257_mv_gpu.tflite"
-        private const val imageSize = 257
+        private const val imageSize = 256
         const val NUM_CLASSES = 21
         private const val IMAGE_MEAN = 128.0f
         private const val IMAGE_STD = 128.0f

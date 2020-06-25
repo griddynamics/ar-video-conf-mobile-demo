@@ -3,15 +3,17 @@ package com.griddynamics.video.conf.tf
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.ColorUtils
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.griddynamics.video.conf.FileDumpUtl
-import com.griddynamics.video.conf.tf.ImageUtils.Companion.bitmapToNormalizedArray
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
+import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -58,6 +60,7 @@ class ImageSegmentationModelExecutorCustomStatic(
     /**
      * Use this method with executorService. Otherwise GpuDelegate will cause exception
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     @Throws(Exception::class)
     fun execute(bitmap: Bitmap, context: Context): ModelExecutionResult {
         fullTimeExecutionTime = SystemClock.uptimeMillis()
@@ -86,39 +89,18 @@ class ImageSegmentationModelExecutorCustomStatic(
         fileDumpUtl.dumpBytes(context, origBuffer.array(), "origBitmap")
         val scaledBuffer = ByteBuffer.allocate(scaledBitmap.byteCount)
         scaledBitmap.copyPixelsToBuffer(scaledBuffer)
-        fileDumpUtl.dumpBytes(context, scaledBuffer.array() , "scaledBitmap")
-        fileDumpUtl.dumpBytes(context, contentArrayNormalized1_1.array() , "normalized1_1Bitmap")
+        fileDumpUtl.dumpBytes(context, scaledBuffer.array(), "scaledBitmap")
+        //  fileDumpUtl.dumpString(context, contentArrayNormalized1_1.asFloatBuffer(), "normalized1_1Bitmap_str")
 
         preprocessTime = SystemClock.uptimeMillis() - preprocessTime
 
         imageSegmentationTime = SystemClock.uptimeMillis()
         try {
-            val arr = bitmapToNormalizedArray(
-                scaledBitmap,
-                imageSize,
-                imageSize
-            )
-            interpreter!!.run(contentArrayNormalized1_1, segmentationMask)
-            //interpreter!!.run(arr, segmentationMask)
-            fileDumpUtl.dumpBytes(context, segmentationMask!!.array(), "maskCustom1_1Bitmap")
-        } catch (ex: Exception) {
-            Log.e("MODEL_ERROR", ex.toString())
-        }
+            interpreter!!.run(contentArrayNormalized1_1, segmentationMask!!.asFloatBuffer())
+            //   fileDumpUtl.dumpBytes(context, segmentationMask!!.array(), "maskCustom1_1Bitmap")
+            segmentationMask!!.rewind()
+            fileDumpUtl.dumpString(context, segmentationMask!!.asFloatBuffer(), "mask_result")
 
-        val contentArrayNormalized0_1 =
-            ImageUtils.bitmapToByteBuffer(
-                scaledBitmap,
-                imageSize,
-                imageSize
-            )
-        fileDumpUtl.dumpBytes(context, contentArrayNormalized0_1.array() , "normalized0_1Bitmap")
-
-        try {
-            val segmentationMask0_1 =
-                ByteBuffer.allocateDirect(imageSize * imageSize * 4)
-            segmentationMask0_1.order(ByteOrder.nativeOrder())
-            interpreter!!.run(contentArrayNormalized0_1, segmentationMask0_1)
-            fileDumpUtl.dumpBytes(context, segmentationMask0_1.array(), "maskCustom0_1Bitmap")
         } catch (ex: Exception) {
             Log.e("MODEL_ERROR", ex.toString())
         }
@@ -138,6 +120,11 @@ class ImageSegmentationModelExecutorCustomStatic(
 
         fullTimeExecutionTime = SystemClock.uptimeMillis() - fullTimeExecutionTime
         Log.d(TAG, "Total time execution $fullTimeExecutionTime")
+        val stream = ByteArrayOutputStream()
+        scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        val byteArray: ByteArray = stream.toByteArray()
+        scaledBitmap.recycle()
+        fileDumpUtl.dumpBytes(context, byteArray, "maskImageApplied.png")
 
         return ModelExecutionResult(
             maskImageApplied,
@@ -217,27 +204,24 @@ class ImageSegmentationModelExecutorCustomStatic(
         val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         val itemsFound = HashSet<Int>()
         inputBuffer.rewind()
-        val segmentColor = Color.argb(
-            (128),
-            0,
-            255,
-            0
-        )
+
 
         for (y in 0 until imageHeight) {
             for (x in 0 until imageWidth) {
                 val index = y * imageWidth + x
-                val value = inputBuffer.getFloat(index*4)
-                if (value <= 0.0f) {
-                    val newPixelColor = ColorUtils.compositeColors(
-                        segmentColor,
-                        backgroundImage.getPixel(x, y)
-                    )
-                    resultBitmap.setPixel(x, y, newPixelColor)
-                    maskBitmap.setPixel(x, y, segmentColor)
-                } else {
-                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
-                }
+                val value = inputBuffer.getFloat(index * 4)
+                val segmentColor = Color.argb(
+                    ((1-value) * 255).toInt(),
+                    0,
+                    255,
+                    0
+                )
+                val newPixelColor = ColorUtils.compositeColors(
+                    segmentColor,
+                    backgroundImage.getPixel(x, y)
+                )
+                resultBitmap.setPixel(x, y, newPixelColor)
+                maskBitmap.setPixel(x, y, segmentColor)
             }
         }
         return Triple(resultBitmap, maskBitmap, itemsFound)
@@ -248,7 +232,7 @@ class ImageSegmentationModelExecutorCustomStatic(
         private const val TAG = "ImageSegmentationMExec"
         private const val imageSegmentationModel = "segm_model_v5_0065_latency_16fp.tflite"
         private const val imageSize = 256
-        private const val IMAGE_MEAN = 128.0f
+        private const val IMAGE_MEAN = 0.0f
         private const val IMAGE_STD = 255.0f
     }
 }

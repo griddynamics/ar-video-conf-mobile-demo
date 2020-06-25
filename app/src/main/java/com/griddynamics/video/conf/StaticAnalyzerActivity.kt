@@ -3,24 +3,18 @@ package com.griddynamics.video.conf
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
-import com.griddynamics.video.conf.CameraFragment.Companion
-import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutor1
 import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutorCustomStatic
 import com.griddynamics.video.conf.tf.ImageSegmentationModelExecutorStatic
-import com.griddynamics.video.conf.tf.ImageUtils
 import com.griddynamics.video.conf.tf.ModelExecutionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,6 +22,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.Executors
+
 
 private const val REQUEST_CODE_PERMISSIONS = 10
 class StaticAnalyzerActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
@@ -160,12 +155,14 @@ class StaticAnalyzerActivity : AppCompatActivity(), CameraFragment.OnCaptureFini
     override fun onCaptureFinishedPic(bmp: Bitmap) {
         coroutineScope.launch(inferenceThread) {
             val matrix = Matrix()
-            matrix.postRotate(180.0f)
+            //matrix.postRotate(180.0f)
 
-            val bm = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
-            val result = imageSegmentation.execute(bm)
+            val largeIcon =
+                BitmapFactory.decodeResource(resources, R.drawable.img)
+           // val bm = Bitmap.createBitmap(largeIcon, 0, 0, largeIcon.width, largeIcon.height, matrix, true)
+            val result = imageSegmentation.execute(largeIcon)
             updateUIWithResults(result)
-            val resultStatic = imageSegmentationCustomStatic.execute(bm, this@StaticAnalyzerActivity)
+            val resultStatic = imageSegmentationCustomStatic.execute(largeIcon, this@StaticAnalyzerActivity)
             updateCustomUIWithResults(resultStatic)
         }
     }

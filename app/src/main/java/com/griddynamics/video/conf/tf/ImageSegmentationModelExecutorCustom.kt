@@ -5,6 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.SystemClock
 import android.util.Log
+import androidx.core.graphics.alpha
+import androidx.core.graphics.blue
+import androidx.core.graphics.green
+import androidx.core.graphics.red
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import org.tensorflow.lite.Interpreter
@@ -181,22 +185,26 @@ class ImageSegmentationModelExecutorCustom(
         val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         val itemsFound = HashSet<Int>()
         inputBuffer.rewind()
-        val segmentColor = Color.argb(
-            (128),
-            0,
-            255,
-            0
-        )
+
 
         for (y in 0 until imageHeight) {
             for (x in 0 until imageWidth) {
                 val index = y * imageWidth + x
                 val value = inputBuffer.getFloat(index * 4)
-                if (value <= 0.000005f) {
-                    resultBitmap.setPixel(x, y, backgroundImage.getPixel(x, y))
-                } else {
-                    resultBitmap.setPixel(x, y, segmentColor)
-                }
+
+                val segmentColor = Color.argb(
+                    (value * 255).toInt(),
+                    0,
+                    255,
+                    0
+                )
+                val pixel = backgroundImage.getPixel(x, y)
+                resultBitmap.setPixel(
+                    x,
+                    y,
+                    Color.argb((value * 255).toInt(), pixel.red, pixel.green, pixel.blue)
+                )
+
             }
         }
         return Triple(resultBitmap, resultBitmap, itemsFound)
