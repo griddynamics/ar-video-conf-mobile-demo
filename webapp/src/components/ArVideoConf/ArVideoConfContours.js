@@ -15,12 +15,13 @@ import {MODEL_INPUT_WIDTH,MODEL_INPUT_HEIGHT,VIDEO_WIDTH,VIDEO_HEIGHT} from '../
 
 const tensorDisplay = new TensorDisplay(VIDEO_WIDTH, VIDEO_HEIGHT);
 const debugStats = new DebugStats(100);
-const SKIP_FRAMES_COUNT = 4;
+const SKIP_FRAMES_COUNT = 20;
+const cv = window.cv;
 
 const ArVideoConf = () => {
     const [loading, setLoading] = useState(true);
     const [backgroundLoading, setBackgroundLoading] = useState(false);
-    const [opacity, setOpacity] = useState(0.5);
+    const [opacity, setOpacity] = useState(1.0);
     const [debug, setDebug]= useState(false);
     const [debugInput, setDebugInput] = useState([]);
     const [backgroundImgSrc, setBackgroundImgSrc] = useState(beach);
@@ -75,10 +76,11 @@ const ArVideoConf = () => {
         const ts = performance.now();
         previousSegmentationComplete=false;
 
-        const input = tf.tidy(()=> tf.browser.fromPixels(videoRef.current).div(tf.scalar(255.0)));            
+        const input = tf.tidy(()=> tf.browser.fromPixels(videoRef.current).div(tf.scalar(255.0)));
 
         if(++frameCnt > SKIP_FRAMES_COUNT){
           updateScaledMask(input);
+          updateCvMask();
           updateVirtualBeackgroundTensor();
           frameCnt = 0;
 
@@ -88,10 +90,12 @@ const ArVideoConf = () => {
           }
         }
 
+        drawContours();
+        updateVirtualBeackgroundTensor();
         const img = tf.tidy(()=> {
-          const foregroundTesnor = input.mul(scaledMask);
+          const foregroundTesnor = input.mul(tf.tensor(cvMask.data, scaledMask.shape).div(tf.scalar(255)));
           return foregroundTesnor.add(videoBackgroundTensor).mul(tf.scalar(255));
-        });
+        });    
 
         const t0 = performance.now();
         //await tf.browser.toPixels(img, canvasRef.current);     
@@ -150,18 +154,82 @@ const ArVideoConf = () => {
       });
     };
 
+    let cap;
+    let cvMask = new cv.Mat();
+    let cvFrame = new cv.Mat(VIDEO_HEIGHT, VIDEO_WIDTH, cv.CV_8UC4);
+    const cvFgmask = new cv.Mat(VIDEO_HEIGHT, VIDEO_WIDTH, cv.CV_8UC1);
+    const cvBackgroundSubtractor = new cv.BackgroundSubtractorMOG2(20, 50, false);
+    const cvContours = new cv.MatVector();
+    const cvHierarchy = new cv.Mat();
+    const cvColorMat = new cv.Mat();
+    const minArea = 1000;
+    const maxArea = 7000;
+    const lowThresh = 100;
+    const highThresh = 250;
+    const cvBilateralFilterImg = new cv.Mat();
+    const cvCannyImg = new cv.Mat();
+    const M = cv.Mat.ones(5, 5, cv.CV_8U);
+    const anchor = new cv.Point(-1, -1); 
+
+    const drawContours = () => {
+      if(!cap) cap = new cv.VideoCapture(videoRef.current);
+      cap.read(cvFrame);
+      cv.cvtColor(cvFrame, cvColorMat, cv.COLOR_RGBA2RGB);
+      cv.bilateralFilter(cvColorMat, cvBilateralFilterImg, 5, 15, 20, cv.BORDER_DEFAULT);
+      cvBackgroundSubtractor.apply(cvBilateralFilterImg, cvFgmask);
+      
+      cv.Canny(cvFgmask, cvCannyImg, lowThresh, highThresh, 3, false);             
+      cv.dilate(cvCannyImg, cvCannyImg, M, anchor, 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+      
+      cv.findContours(cvCannyImg, cvContours, cvHierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+      let poly = new cv.MatVector();
+      for (let i = 0; i < cvContours.size(); ++i) {
+          let cnt = cvContours.get(i);
+          let area = cv.contourArea(cnt);
+          if( area > minArea && area < maxArea) {
+              let approx = new cv.Mat();
+              let perimeter = cv.arcLength(cnt, true);
+              let epsilon = 0.01 * perimeter;
+              cv.approxPolyDP(cnt, approx, epsilon, true);
+              poly.push_back(approx);
+              approx.delete();
+          }
+          cnt.delete();
+      }
+                    
+      for (let i = 0; i < poly.size(); ++i) {
+        let color = new cv.Scalar(
+          255, //Math.round(Math.random() * 255), 
+          255, //Math.round(Math.random() * 255),
+          255, //Math.round(Math.random() * 255),
+          255);
+        cv.drawContours(cvMask, poly, i, color, -1, cv.LINE_8, cvHierarchy, 0);
+      }
+      poly.delete();
+      cv.imshow('canvasMaskOutput', cvMask);     
+      console.log(cvMask.channels());
+    }
+
+
+    const updateCvMask = () => {
+      const data = scaledMask.mul(tf.scalar(255)).toInt().dataSync();
+      cvMask.delete();
+      cvMask = cv.matFromArray(VIDEO_HEIGHT, VIDEO_WIDTH, cv.CV_8UC1, data);
+    }
+
     const updateVirtualBeackgroundTensor = () => {
       disposeIfSet(videoBackgroundTensor);
       videoBackgroundTensor = tf.tidy(()=> { 
         const ones = tf.ones([VIDEO_HEIGHT, VIDEO_WIDTH, 1]);
-        const backgroundMask = ones.sub(scaledMask);
+        const backgroundMask = ones.sub(tf.tensor(cvMask.data, scaledMask.shape).div(tf.scalar(255)));
         return backgroundMask.mul(backgroundTensorRef.current);
       });
     };
 
     const showDebug = () => {
-      setDebug(true);
-      debugRef.current = true;
+      // setDebug(true);
+      // debugRef.current = true;
     }
 
     const closeDebug = () => {
@@ -171,7 +239,7 @@ const ArVideoConf = () => {
 
     return (
         <div className={container}>
-            <video ref={videoRef} style={{display: "none"}} autoPlay onLoadedData={onLoadedData}></video>
+            <video ref={videoRef} style={{display: "none"}} autoPlay onLoadedData={onLoadedData} width={VIDEO_WIDTH} height={VIDEO_HEIGHT}></video>
             <div className={center}>   
               {loading && <CircularProgress size={100} />}           
             </div>
@@ -207,6 +275,7 @@ const ArVideoConf = () => {
                 </div>
               </div>
             </div>
+            <canvas width={VIDEO_WIDTH} height={VIDEO_HEIGHT} id="canvasMaskOutput"></canvas>
             {debug &&
               <div>
                 <Tooltip title="Close Debug">

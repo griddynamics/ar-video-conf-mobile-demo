@@ -53,14 +53,16 @@ export class DebugStats{
 
     summary = () => {
         const sum = (x,y) => x + y;
-        const dt = this.displayTime.reduce(sum)/this.displayTime.length;
-        const pt = this.predictionTime.reduce(sum)/this.predictionTime.length - dt;
-        const ot = this.overallTime.reduce(sum)/this.overallTime.length;
+        const avg = (arr) => arr.reduce(sum)/arr.length;
+
+        const avgDt = avg(this.displayTime);
+        const avgPt = avg(this.predictionTime) - avgDt;
+        const avgOt = avg(this.overallTime);
         
         return {
-            display: `${Math.ceil(dt)}ms`,
-            prediction: `${Math.ceil(pt)}ms`,
-            overall: `${Math.ceil(ot)}ms`
+            display: `${Math.ceil(avgDt)}ms`,
+            prediction: `${Math.ceil(avgPt)}ms`,
+            overall: `${Math.ceil(avgOt)}ms`
         };
     }
 }
