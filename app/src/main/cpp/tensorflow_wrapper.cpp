@@ -37,6 +37,10 @@ TfLiteInterpreter *interpreter;
 #define BLEND(back, front, alpha) ((front * alpha) + (back * (255 - alpha))) / 255
 #define ARGB(a, r, g, b) (a << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
 
+const jfloat f255 = 255;
+const jint i256 = 256;
+#define LOG_TAG "DEMO"
+
 extern "C"
 JNIEXPORT jlong
 JNICALL
@@ -216,8 +220,11 @@ Java_com_griddynamics_video_conf_MainActivity_jniGetBitmapFromStoredBitmapData(
     return newBitmap;
 }
 
-const jfloat f255 = 255;
-const jint i256 = 256;
+int64_t getTimeNsec() {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (int64_t) now.tv_sec * 1000000000LL + now.tv_nsec;
+}
 
 extern "C"
 JNIEXPORT jobject
@@ -227,6 +234,8 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
         jobject output, jobject result,
         jobject bitmap, jobject bitmapBack,
         jint nnewWidth, jint nnewHeight) {
+
+    auto timestamp = getTimeNsec();
 
     jobject handle = Java_com_griddynamics_video_conf_MainActivity_jniStoreBitmapData(env, obj,
                                                                                       bitmap);
@@ -268,9 +277,19 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     }
 
     Java_com_griddynamics_video_conf_MainActivity_jniFreeBitmapData(env, obj, handle);
+    auto diff = (getTimeNsec() - timestamp) / 1000000000.0;
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
+                        ("norm time - " + std::to_string(diff)).c_str());
+
+    timestamp = getTimeNsec();
 
     Java_com_griddynamics_video_conf_MainActivity_startCompute(env, obj, 0L, output, result);
 
+    diff = (getTimeNsec() - timestamp) / 1000000000.0;
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
+                        ("compute time - " + std::to_string(diff)).c_str());
+
+    timestamp = getTimeNsec();
     handle = Java_com_griddynamics_video_conf_MainActivity_jniStoreBitmapData(env, obj, bitmapBack);
     jniBitmap = (JniBitmap *) env->GetDirectBufferAddress(handle);
 
@@ -307,6 +326,11 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     jniBitmap->_storedBitmapPixels = newBitmapPixels;
     jniBitmap->_bitmapInfo.width = nnewWidth;
     jniBitmap->_bitmapInfo.height = nnewHeight;
+
+    diff = (getTimeNsec() - timestamp) / 1000000000.0;
+    __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
+                        ("finish scaling time - " + std::to_string(diff)).c_str());
+
 
     return Java_com_griddynamics_video_conf_MainActivity_jniGetBitmapFromStoredBitmapData(env, obj,
                                                                                           handle);
