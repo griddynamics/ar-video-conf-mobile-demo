@@ -16,6 +16,8 @@ import {MODEL_INPUT_WIDTH,MODEL_INPUT_HEIGHT,VIDEO_WIDTH,VIDEO_HEIGHT} from '../
 const tensorDisplay = new TensorDisplay(VIDEO_WIDTH, VIDEO_HEIGHT);
 const debugStats = new DebugStats(100);
 const SKIP_FRAMES_COUNT = 4;
+const cv = window.cv;
+
 
 const ArVideoConf = () => {
     const [loading, setLoading] = useState(true);
@@ -69,24 +71,52 @@ const ArVideoConf = () => {
 
     let videoBackgroundTensor;
     let scaledMask;
+    
+    let cvCapture;
+    const frame = new cv.Mat(VIDEO_HEIGHT, VIDEO_WIDTH, cv.CV_8UC4);
+    const inputModelSize = new cv.Size(MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH);
+    const resizedFrame = new cv.Mat();
+    const cvColorMat = new cv.Mat();
+    const bilateralFilterImg = new cv.Mat();
+    const edgeDetectedImage = new cv.Mat();
 
     const predictWebCam = async () => {
       if(previousSegmentationComplete){
         const ts = performance.now();
         previousSegmentationComplete=false;
+        
+        // const x = tf.tidy(()=> tf.browser.fromPixels(videoRef.current).div(tf.scalar(255.0)));
+        // console.log(x.shape);
+        if(!cvCapture) cvCapture = new cv.VideoCapture(videoRef.current);
+        cvCapture.read(frame);
+        
+        cv.resize(frame, resizedFrame, inputModelSize, 0, 0, cv.INTER_AREA);
+        cv.cvtColor(resizedFrame, cvColorMat, cv.COLOR_RGBA2RGB);
+        cv.bilateralFilter(cvColorMat, bilateralFilterImg, 5, 15, 20, cv.BORDER_DEFAULT);
+        cv.Canny(bilateralFilterImg, edgeDetectedImage, 100, 250, 3, false);  
+        
+        const input = tf.tidy(() => {
+            const frameTensor = tf.tensor(cvColorMat.data, [1, 256, 256, 3]);
+            const edgeTensor = tf.tensor(edgeDetectedImage.data, [1, 256, 256, 1]);
+            return tf.concat([frameTensor, edgeTensor], 3);
+        });
 
-        const input = tf.tidy(()=> tf.browser.fromPixels(videoRef.current).div(tf.scalar(255.0)));            
+        input.print();
 
-        if(++frameCnt > SKIP_FRAMES_COUNT){
-          updateScaledMask(input);
-          updateVirtualBeackgroundTensor();
-          frameCnt = 0;
+        // if(++frameCnt > SKIP_FRAMES_COUNT){
+        //   updateScaledMask(input);
+        //   updateVirtualBeackgroundTensor();
+        //   frameCnt = 0;
 
-          if(debugRef.current){
-            setDebugInput([input, scaledMask, debugStats.summary()]);
-            debugRef.current = false;
-          }
-        }
+        //   if(debugRef.current){
+        //     setDebugInput([input, scaledMask, debugStats.summary()]);
+        //     debugRef.current = false;
+        //   }
+        // }
+
+        updateScaledMask(input);
+        updateVirtualBeackgroundTensor();
+
 
         const img = tf.tidy(()=> {
           const foregroundTesnor = input.mul(scaledMask);
@@ -171,7 +201,7 @@ const ArVideoConf = () => {
 
     return (
         <div className={container}>
-            <video ref={videoRef} style={{display: "none"}} autoPlay onLoadedData={onLoadedData}></video>
+            <video ref={videoRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} style={{display: "none"}} autoPlay onLoadedData={onLoadedData}></video>
             <div className={center}>   
               {loading && <CircularProgress size={100} />}           
             </div>
@@ -207,6 +237,7 @@ const ArVideoConf = () => {
                 </div>
               </div>
             </div>
+            <canvas width={VIDEO_WIDTH} height={VIDEO_HEIGHT} id="canvasMaskOutput"></canvas>
             {debug &&
               <div>
                 <Tooltip title="Close Debug">

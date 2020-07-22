@@ -1,0 +1,125 @@
+<html>
+    <head>
+        <title>Open CV</title>
+        <script src="https://docs.opencv.org/3.4.0/opencv.js" type="text/javascript"></script>
+        <style>
+            body{
+                display: flex;
+                justify-content: space-around;
+                flex-wrap: wrap;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <video id='videoInput' width=500 height=450 autoPlay></video>
+        </div>
+        <div>
+            <canvas id="canvasMaskOutput"></canvas>
+        </div>
+        <div>
+            <canvas id="canvasContourOutput"></canvas>
+        </div>
+        <div>
+            <canvas id="canvasContourOutputColor"></canvas>
+        </div>
+        <script type="text/javascript">
+            const video = document.getElementById('videoInput');
+            const cap = new cv.VideoCapture(video);
+
+            const frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            const dst = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            const fgmask = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+            const fgbg = new cv.BackgroundSubtractorMOG2(20, 50, false);
+            const bilateralFilterImg = new cv.Mat();
+            const colorMat = new cv.Mat();
+            const cannyImg = new cv.Mat();
+            const FPS = 30;
+
+            const lowThresh = 100;
+            const highThresh = 250;
+            const nIters = 2;
+            const minArea = 500;
+            const maxArea = 5000;
+            const M = cv.Mat.ones(5, 5, cv.CV_8U);
+            const anchor = new cv.Point(-1, -1);
+
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            
+            function processVideo() {
+                try {
+                    let begin = Date.now();
+                    cap.read(frame);
+                    
+                    //background substration
+                    cv.cvtColor(frame, colorMat, cv.COLOR_RGBA2RGB);
+                    cv.bilateralFilter(colorMat, bilateralFilterImg, 5, 15, 20, cv.BORDER_DEFAULT);
+                    fgbg.apply(bilateralFilterImg, fgmask);
+                    
+                    //egde detection
+                    cv.Canny(fgmask, cannyImg, lowThresh, highThresh, 3, false);
+                    cv.dilate(cannyImg, cannyImg, M, anchor, 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+                    cv.imshow('canvasMaskOutput', cannyImg);
+
+                    cv.findContours(cannyImg, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+                    let poly = new cv.MatVector();
+                    for (let i = 0; i < contours.size(); ++i) {
+                        let cnt = contours.get(i);
+                        let area = cv.contourArea(cnt);
+                        if( area > minArea && area < maxArea) {
+                            let approx = new cv.Mat();
+                            let perimeter = cv.arcLength(cnt, true);
+                            let epsilon = 0.01 * perimeter;
+                            cv.approxPolyDP(cnt, approx, epsilon, true);
+                            poly.push_back(approx);
+                            approx.delete();
+                        }
+                        cnt.delete();
+                    }
+                    
+                    // draw contours with random Scalar
+                    for (let i = 0; i < poly.size(); ++i) {
+                        let color = new cv.Scalar(
+                            Math.round(Math.random() * 255), 
+                            Math.round(Math.random() * 255),
+                            Math.round(Math.random() * 255), 
+                            255);
+                            
+                        cv.drawContours(cannyImg, poly, i, color, -1, cv.LINE_8, hierarchy, 0);
+                        cv.drawContours(frame, poly, i, color, -1, cv.LINE_8, hierarchy, 0);
+                    }
+
+                    poly.delete();
+                    cv.imshow('canvasContourOutput', cannyImg);
+                    cv.imshow('canvasContourOutputColor', frame);
+                    
+                    // schedule the next one.
+                    let delay = 1000/FPS - (Date.now() - begin);
+                    setTimeout(processVideo, delay);    
+                } catch (err) {
+                    console.log(err);
+                }
+            };
+
+            (() => 
+            {
+                navigator.mediaDevices
+                .getUserMedia({
+                    audio: false,
+                    video: {
+                    facingMode: "user",
+                    width: { ideal: video.width},
+                    height: { ideal: video.height}
+                    }
+                })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .then(processVideo);
+            })();
+        </script>
+        
+    </body>
+</html>
