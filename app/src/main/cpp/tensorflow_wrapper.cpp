@@ -28,17 +28,22 @@ TfLiteModel *model;
 TfLiteInterpreterOptions *options;
 TfLiteInterpreter *interpreter;
 
+const jsize sizeInputInFloat = 64 * 64 * 3;
+const jsize sizeInputInBytes = sizeInputInFloat * sizeof(jfloat);
+const jsize sizeOutputInFloat = 64 * 64;
+const jsize sizeOutputInBytes = sizeOutputInFloat * sizeof(jfloat);
+
 #define ALPHA(rgb) (uint8_t)(rgb >> 24)
-#define RED(rgb)   (uint8_t)(rgb >> 16)
+#define RED(rgb)   (uint8_t)(rgb >> 16) & 0xFF
 #define GREEN(rgb) (uint8_t)(rgb >> 8)
 #define BLUE(rgb)  (uint8_t)(rgb)
 
 #define UNMULTIPLY(color, alpha) ((0xFF * color) / alpha)
 #define BLEND(back, front, alpha) ((front * alpha) + (back * (255 - alpha))) / 255
-#define ARGB(a, r, g, b) (a << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
+#define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
 
 const jfloat f255 = 255;
-const jint i256 = 256;
+const jint intModelImgSize = 64;
 #define LOG_TAG "DEMO"
 
 extern "C"
@@ -81,6 +86,7 @@ Java_com_griddynamics_video_conf_MainActivity_jniInitModel(
 
     model = TfLiteModelCreate(flatBuffersBuffer, dataSize);
     options = TfLiteInterpreterOptionsCreate();
+
     TfLiteInterpreterOptionsSetNumThreads(options, 2);
 
     interpreter = TfLiteInterpreterCreate(model, options);
@@ -89,11 +95,6 @@ Java_com_griddynamics_video_conf_MainActivity_jniInitModel(
 
     return model == nullptr ? 555 : 5005;
 }
-
-const jsize sizeInputInFloat = 256 * 256 * 3;
-const jsize sizeInputInBytes = sizeInputInFloat * sizeof(jfloat);
-const jsize sizeOutputInFloat = 256 * 256;
-const jsize sizeOutputInBytes = sizeOutputInFloat * sizeof(jfloat);
 
 extern "C"
 JNIEXPORT void
@@ -237,6 +238,7 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
 
     auto timestamp = getTimeNsec();
 
+    //START// SCALING AND NORMALIZING
     jobject handle = Java_com_griddynamics_video_conf_MainActivity_jniStoreBitmapData(env, obj,
                                                                                       bitmap);
     auto *jniBitmap = (JniBitmap *) env->GetDirectBufferAddress(handle);
@@ -244,8 +246,8 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     auto *normalized = (jfloat *) env->GetDirectBufferAddress(output);
     auto *outputBuf = (jfloat *) env->GetDirectBufferAddress(result);
 
-    const jint newWidth = i256;
-    const jint newHeight = i256;
+    const jint newWidth = intModelImgSize;
+    const jint newHeight = intModelImgSize;
 
     auto *newBitmapPixels = new uint32_t[nnewWidth * nnewHeight];
 
@@ -280,7 +282,9 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     auto diff = (getTimeNsec() - timestamp) / 1000000000.0;
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
                         ("norm time - " + std::to_string(diff)).c_str());
+    //END// SCALING AND NORMALIZING
 
+    //START// DRIVE MODEL
     timestamp = getTimeNsec();
 
     Java_com_griddynamics_video_conf_MainActivity_startCompute(env, obj, 0L, output, result);
@@ -288,13 +292,15 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     diff = (getTimeNsec() - timestamp) / 1000000000.0;
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
                         ("compute time - " + std::to_string(diff)).c_str());
+    //END// DRIVE MODEL
 
+    //START// SCALE AND PRODUCE MASK
     timestamp = getTimeNsec();
     handle = Java_com_griddynamics_video_conf_MainActivity_jniStoreBitmapData(env, obj, bitmapBack);
     jniBitmap = (JniBitmap *) env->GetDirectBufferAddress(handle);
 
-    oldWidth = i256;
-    oldHeight = i256;
+    oldWidth = intModelImgSize;
+    oldHeight = intModelImgSize;
     previousData = jniBitmap->_storedBitmapPixels;
     whereToPut = 0;
     for (int y = 0; y < nnewHeight; ++y) {
@@ -331,6 +337,7 @@ Java_com_griddynamics_video_conf_MainActivity_jniProcessBitmap(
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s",
                         ("finish scaling time - " + std::to_string(diff)).c_str());
 
+    //END// SCALE AND PRODUCE MASK
 
     return Java_com_griddynamics_video_conf_MainActivity_jniGetBitmapFromStoredBitmapData(env, obj,
                                                                                           handle);

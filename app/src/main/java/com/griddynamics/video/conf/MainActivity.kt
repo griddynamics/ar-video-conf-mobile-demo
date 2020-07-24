@@ -30,11 +30,12 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
 
-        private const val MODEL_INPUT_BYTES = 256 * 256 * 3 * 4
-        private const val MODEL_OUTPUT_BYTES = 256 * 256 * 4
+        private const val MODEL_IMAGE_SIZE = 64
+        private const val MODEL_OUTPUT_BYTES = MODEL_IMAGE_SIZE * MODEL_IMAGE_SIZE * 4
+        private const val MODEL_INPUT_BYTES = MODEL_OUTPUT_BYTES * 3
 
         private const val TAG = "tensorflow_main"
-        private const val MODEL_NAME = "segm_model_v5_0065_latency_16fp.tflite"
+        private const val MODEL_NAME = "segm_model_v11_latency_16fp_better.tflite"
         private const val REQUEST_CODE_PERMISSIONS = 10
 
         init {
@@ -74,6 +75,7 @@ class MainActivity : AppCompatActivity() {
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
             )
         }
+        tvModelInfo.text = MODEL_NAME
         coroutineScope.launch {
             jniInitModel(MODEL_NAME, assets)
         }
@@ -130,6 +132,8 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    var startTimestampMain = System.currentTimeMillis()
+
     private fun analyze(modelInputBuffer: ByteBuffer, modelOutputBuffer: ByteBuffer) {
         viewFinder.apply {
             bitmap?.let {
@@ -139,13 +143,17 @@ class MainActivity : AppCompatActivity() {
                     modelOutputBuffer,
                     it,
                     backgroundImage,
-                    width,
-                    height
+                    MODEL_IMAGE_SIZE,
+                    MODEL_IMAGE_SIZE
                 )
                 val diff = System.currentTimeMillis() - startTimestamp
 
                 runOnUiThread {
-                    tvFPS.text = "frame update took - $diff ms"
+                    val fps = 1000 / (System.currentTimeMillis() - startTimestampMain)
+                    tvFPS.text =
+                        "${fps}fps\n(frame update took - $diff ms)"
+                    startTimestampMain = System.currentTimeMillis()
+
                     ivOverlay.setImageBitmap(
                         resultBitmap
                     )

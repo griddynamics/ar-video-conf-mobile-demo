@@ -9,6 +9,7 @@
     <ImageView
         android:id="@+id/ivOverlay"
         android:layout_width="match_parent"
+        android:scaleType="fitXY"
         android:layout_height="match_parent"
         android:elevation="1dp" />
 
@@ -29,6 +30,18 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:text="10" />
 
+    <TextView
+        android:id="@+id/tvModelInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="20dp"
+        android:elevation="10dp"
+        android:textColor="@color/colorPrimary"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="segm_model_v5_0065_latency_16fp" />
+
     <Button
         android:id="@+id/button"
         android:layout_width="wrap_content"
@@ -36,8 +49,8 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="52dp"
         android:elevation="10dp"
-        android:visibility="gone"
         android:text="compute"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
