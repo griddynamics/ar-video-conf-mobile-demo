@@ -3,26 +3,28 @@ package com.griddynamics.video.conf
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.content.res.AssetManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.*
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.scale
 import com.griddynamics.video.conf.utils.BuildUtils.Companion.isEmulator
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
@@ -30,42 +32,23 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
 
-        private const val MODEL_IMAGE_SIZE = 64
-        private const val MODEL_OUTPUT_BYTES = MODEL_IMAGE_SIZE * MODEL_IMAGE_SIZE * 4
-        private const val MODEL_INPUT_BYTES = MODEL_OUTPUT_BYTES * 3
-
-        private const val TAG = "tensorflow_main"
-        private const val MODEL_NAME = "segm_model_v11_latency_16fp_better.tflite"
         private const val REQUEST_CODE_PERMISSIONS = 10
 
-        init {
-            System.loadLibrary("tensorflow_wrapper")
-        }
     }
-
-    private external fun jniInitModel(assetName: String, assetManager: AssetManager): Long
-    private external fun jniProcessBitmap(
-        input: ByteBuffer,
-        result: ByteBuffer,
-        inputBitmap: Bitmap,
-        backgroundBitmap: Bitmap,
-        resultBitmapWidth: Int,
-        resultBitmapHeight: Int
-    ): Bitmap
-
-    private external fun jniDestroyModel()
 
     private val coroutineScope = CoroutineScope(Job())
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
-    private lateinit var backgroundImage: Bitmap
+    private var backgroundImage: Bitmap? = null
+    private val i256 = 256
+    private lateinit var imageSegmentation: ImageSegmentation
+    private val imageSegmentationFactory = ImageSegmentationFactory()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Request camera permissions
         if (allPermissionsGranted()) {
             viewFinder.post {
                 startCamera()
@@ -75,24 +58,51 @@ class MainActivity : AppCompatActivity() {
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
             )
         }
-        tvModelInfo.text = MODEL_NAME
+        setupButtons()
         coroutineScope.launch {
-            jniInitModel(MODEL_NAME, assets)
+            imageSegmentation = imageSegmentationFactory.provideCustom(applicationContext)
         }
+    }
+
+    private fun setupButtons() {
+        btnNothing.setOnClickListener {
+            btnNothing.scaleX = 1.4f
+            btnNothing.scaleY = 1.4f
+            btnBeach.scaleX = 1f
+            btnBeach.scaleY = 1f
+            btnGD.scaleX = 1f
+            btnGD.scaleY = 1f
+
+            backgroundImage = null
+        }
+        btnBeach.setOnClickListener {
+            btnNothing.scaleX = 1f
+            btnNothing.scaleY = 1f
+            btnBeach.scaleX = 1.4f
+            btnBeach.scaleY = 1.4f
+            btnGD.scaleX = 1f
+            btnGD.scaleY = 1f
+
+            backgroundImage = getDrawable(R.drawable.beach)?.toBitmap()!!.scale(256, 256)
+                .scale(256, 256)
+        }
+        btnGD.setOnClickListener {
+            btnNothing.scaleX = 1f
+            btnNothing.scaleY = 1f
+            btnBeach.scaleX = 1f
+            btnBeach.scaleY = 1f
+            btnGD.scaleX = 1.4f
+            btnGD.scaleY = 1.4f
+
+            backgroundImage =
+                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(256, 256)
+        }
+
+        btnGD.callOnClick()
     }
 
     @SuppressLint("NewApi")
     private fun startCamera() {
-        val modelInputBuffer = ByteBuffer.allocateDirect(MODEL_INPUT_BYTES).apply {
-            order(ByteOrder.nativeOrder())
-        }
-        val modelOutputBuffer = ByteBuffer.allocateDirect(MODEL_OUTPUT_BYTES).apply {
-            order(ByteOrder.nativeOrder())
-        }
-
-        backgroundImage = resources.getDrawable(R.drawable.beach_photo, theme).toBitmap()
-            .scale(viewFinder.width, viewFinder.height)
-
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener(Runnable {
             // Used to bind the lifecycle of cameras to the lifecycle owner
@@ -106,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                     it.setAnalyzer(
                         Executors.newWorkStealingPool(),
                         ImageAnalysis.Analyzer { image ->
-                            analyze(modelInputBuffer, modelOutputBuffer)
+                            analyze()
                             image.close()
                         })
                 }
@@ -126,39 +136,47 @@ class MainActivity : AppCompatActivity() {
                 )
                 preview?.setSurfaceProvider(viewFinder.createSurfaceProvider())
             } catch (exc: Exception) {
-                Log.e(TAG, "Use case binding failed", exc)
+                Log.e(javaClass.name, "Use case binding failed", exc)
             }
 
         }, ContextCompat.getMainExecutor(this))
     }
 
-    var startTimestampMain = System.currentTimeMillis()
-
-    private fun analyze(modelInputBuffer: ByteBuffer, modelOutputBuffer: ByteBuffer) {
-        viewFinder.apply {
-            bitmap?.let {
+    private fun analyze() {
+        backgroundImage?.let {
+            viewFinder.bitmap?.let { bitmap ->
                 val startTimestamp = System.currentTimeMillis()
-                val resultBitmap = jniProcessBitmap(
-                    modelInputBuffer,
-                    modelOutputBuffer,
-                    it,
-                    backgroundImage,
-                    MODEL_IMAGE_SIZE,
-                    MODEL_IMAGE_SIZE
+
+                val result = imageSegmentation.execute(
+                    bitmap, bitmap.width,
+                    bitmap.height
                 )
                 val diff = System.currentTimeMillis() - startTimestamp
+                val scaledBitmap = result.scale(i256, i256)
+                for (y in 0 until i256) {
+                    for (x in 0 until i256) {
+                        val segmentColor = Color.argb(
+                            scaledBitmap[x, y].alpha,
+                            it[x, y].red,
+                            it[x, y].green,
+                            it[x, y].blue
+                        )
+
+                        scaledBitmap.setPixel(x, y, segmentColor)
+                    }
+                }
 
                 runOnUiThread {
-                    val fps = 1000 / (System.currentTimeMillis() - startTimestampMain)
-                    tvFPS.text =
-                        "${fps}fps\n(frame update took - $diff ms)"
-                    startTimestampMain = System.currentTimeMillis()
-
                     ivOverlay.setImageBitmap(
-                        resultBitmap
+                        scaledBitmap
                     )
                 }
             }
+        }
+        runOnUiThread {
+            ivOverlay.visibility =
+                if (backgroundImage == null) View.GONE else View.VISIBLE
+
         }
     }
 
@@ -166,6 +184,11 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(
             baseContext, it
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onDestroy() {
+        imageSegmentationFactory.destroy()
+        super.onDestroy()
     }
 
     override fun onRequestPermissionsResult(
@@ -184,10 +207,5 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
         }
-    }
-
-    override fun onDestroy() {
-        jniDestroyModel()
-        super.onDestroy()
     }
 }
