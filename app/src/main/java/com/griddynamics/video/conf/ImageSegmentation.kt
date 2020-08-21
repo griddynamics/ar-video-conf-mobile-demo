@@ -3,6 +3,10 @@ package com.griddynamics.video.conf
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.core.graphics.blue
+import androidx.core.graphics.get
+import androidx.core.graphics.green
+import androidx.core.graphics.red
 import com.griddynamics.video.conf.utils.ImageUtils
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
@@ -13,6 +17,7 @@ class ImageSegmentation(
 ) {
 
     private val segmentationMask: ByteBuffer = ByteBuffer.allocateDirect(imageSize * imageSize * 4)
+    var backgroundImage: Bitmap? = null
 
     init {
         segmentationMask.order(ByteOrder.nativeOrder())
@@ -26,6 +31,8 @@ class ImageSegmentation(
 
     @SuppressLint("NewApi")
     fun execute(bitmap: Bitmap, width: Int, height: Int): Bitmap {
+        if(backgroundImage == null)
+            return bitmap
         val scaledBitmap =
             ImageUtils.scaleBitmapAndKeepRatio(
                 bitmap,
@@ -57,19 +64,20 @@ class ImageSegmentation(
         val conf = Bitmap.Config.ARGB_8888
         val maskBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         inputBuffer.rewind()
+        backgroundImage?.let {
+            for (y in 0 until imageHeight) {
+                for (x in 0 until imageWidth) {
+                    val index = y * imageWidth + x
+                    val value = inputBuffer.getFloat(index * 4)
+                    val segmentColor = Color.argb(
+                        ((1 - value) * 255).toInt(),
+                        it[x, y].red,
+                        it[x, y].green,
+                        it[x, y].blue
+                    )
 
-        for (y in 0 until imageHeight) {
-            for (x in 0 until imageWidth) {
-                val index = y * imageWidth + x
-                val value = inputBuffer.getFloat(index * 4)
-                val segmentColor = Color.argb(
-                    ((1 - value) * 255).toInt(),
-                    0,
-                    0,
-                    0
-                )
-
-                maskBitmap.setPixel(x, y, segmentColor)
+                    maskBitmap.setPixel(x, y, segmentColor)
+                }
             }
         }
         return maskBitmap

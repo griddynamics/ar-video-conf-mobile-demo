@@ -41,9 +41,11 @@ class MainActivity : AppCompatActivity() {
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
     private var backgroundImage: Bitmap? = null
-    private val i256 = 256
+    private val i256 = 32
+    private val deepLabLite: DeepLabLite = DeepLabLite()
     private lateinit var imageSegmentation: ImageSegmentation
     private val imageSegmentationFactory = ImageSegmentationFactory()
+    private var useDeeplab = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +63,10 @@ class MainActivity : AppCompatActivity() {
         setupButtons()
         coroutineScope.launch {
             imageSegmentation = imageSegmentationFactory.provideCustom(applicationContext)
+            deepLabLite.initialize(applicationContext)
+            runOnUiThread {
+                btnGD.callOnClick()
+            }
         }
     }
 
@@ -72,8 +78,11 @@ class MainActivity : AppCompatActivity() {
             btnBeach.scaleY = 1f
             btnGD.scaleX = 1f
             btnGD.scaleY = 1f
+            btnDL.scaleX = 1f
+            btnDL.scaleY = 1f
 
-            backgroundImage = null
+            imageSegmentation.backgroundImage = null
+            useDeeplab = false
         }
         btnBeach.setOnClickListener {
             btnNothing.scaleX = 1f
@@ -82,9 +91,12 @@ class MainActivity : AppCompatActivity() {
             btnBeach.scaleY = 1.4f
             btnGD.scaleX = 1f
             btnGD.scaleY = 1f
+            btnDL.scaleX = 1f
+            btnDL.scaleY = 1f
 
-            backgroundImage = getDrawable(R.drawable.beach)?.toBitmap()!!.scale(256, 256)
-                .scale(256, 256)
+            imageSegmentation.backgroundImage =
+                getDrawable(R.drawable.beach)?.toBitmap()!!.scale(i256, i256)
+            useDeeplab = false
         }
         btnGD.setOnClickListener {
             btnNothing.scaleX = 1f
@@ -93,12 +105,27 @@ class MainActivity : AppCompatActivity() {
             btnBeach.scaleY = 1f
             btnGD.scaleX = 1.4f
             btnGD.scaleY = 1.4f
+            btnDL.scaleX = 1f
+            btnDL.scaleY = 1f
 
-            backgroundImage =
-                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(256, 256)
+            imageSegmentation.backgroundImage =
+                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(i256, i256)
+            useDeeplab = false
         }
+        btnDL.setOnClickListener {
+            btnNothing.scaleX = 1f
+            btnNothing.scaleY = 1f
+            btnBeach.scaleX = 1f
+            btnBeach.scaleY = 1f
+            btnGD.scaleX = 1f
+            btnGD.scaleY = 1f
+            btnDL.scaleX = 1.4f
+            btnDL.scaleY = 1.4f
 
-        btnGD.callOnClick()
+            imageSegmentation.backgroundImage =
+                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(i256, i256)
+            useDeeplab = true
+        }
     }
 
     @SuppressLint("NewApi")
@@ -143,39 +170,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun analyze() {
-        backgroundImage?.let {
+        imageSegmentation.backgroundImage?.let {
             viewFinder.bitmap?.let { bitmap ->
-                val startTimestamp = System.currentTimeMillis()
+                val result = if (useDeeplab) {
+                    deepLabLite.segment(bitmap.scale(257, 257))
 
-                val result = imageSegmentation.execute(
-                    bitmap, bitmap.width,
-                    bitmap.height
-                )
-                val diff = System.currentTimeMillis() - startTimestamp
-                val scaledBitmap = result.scale(i256, i256)
-                for (y in 0 until i256) {
-                    for (x in 0 until i256) {
-                        val segmentColor = Color.argb(
-                            scaledBitmap[x, y].alpha,
-                            it[x, y].red,
-                            it[x, y].green,
-                            it[x, y].blue
-                        )
-
-                        scaledBitmap.setPixel(x, y, segmentColor)
-                    }
+                } else {
+                    imageSegmentation.execute(
+                        bitmap, bitmap.width,
+                        bitmap.height
+                    )
                 }
-
                 runOnUiThread {
                     ivOverlay.setImageBitmap(
-                        scaledBitmap
+                        result
                     )
                 }
             }
         }
         runOnUiThread {
             ivOverlay.visibility =
-                if (backgroundImage == null) View.GONE else View.VISIBLE
+                if (imageSegmentation.backgroundImage == null) View.GONE else View.VISIBLE
 
         }
     }

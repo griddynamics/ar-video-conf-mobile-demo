@@ -56,8 +56,21 @@
         android:background="@drawable/beach_logo"
         android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnDL"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/btnGD" />
+
+    <Button
+        android:id="@+id/btnDL"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@null"
+        android:layout_marginBottom="16dp"
+        android:text="DL"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/btnBeach" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
