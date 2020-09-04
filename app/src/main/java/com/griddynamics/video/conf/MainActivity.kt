@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -17,8 +16,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.*
-import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.scale
 import com.griddynamics.video.conf.utils.BuildUtils.Companion.isEmulator
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.CoroutineScope
@@ -40,12 +38,12 @@ class MainActivity : AppCompatActivity() {
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
-    private var backgroundImage: Bitmap? = null
-    private val i256 = 32
+    private val i256 = 256
     private val deepLabLite: DeepLabLite = DeepLabLite()
     private lateinit var imageSegmentation: ImageSegmentation
     private val imageSegmentationFactory = ImageSegmentationFactory()
     private var useDeeplab = false
+    private var timestamp = System.currentTimeMillis()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,56 +72,65 @@ class MainActivity : AppCompatActivity() {
         btnNothing.setOnClickListener {
             btnNothing.scaleX = 1.4f
             btnNothing.scaleY = 1.4f
-            btnBeach.scaleX = 1f
-            btnBeach.scaleY = 1f
+            btnBlur.scaleX = 1f
+            btnBlur.scaleY = 1f
             btnGD.scaleX = 1f
             btnGD.scaleY = 1f
             btnDL.scaleX = 1f
             btnDL.scaleY = 1f
 
-            imageSegmentation.backgroundImage = null
-            useDeeplab = false
-        }
-        btnBeach.setOnClickListener {
-            btnNothing.scaleX = 1f
-            btnNothing.scaleY = 1f
-            btnBeach.scaleX = 1.4f
-            btnBeach.scaleY = 1.4f
-            btnGD.scaleX = 1f
-            btnGD.scaleY = 1f
-            btnDL.scaleX = 1f
-            btnDL.scaleY = 1f
-
-            imageSegmentation.backgroundImage =
-                getDrawable(R.drawable.beach)?.toBitmap()!!.scale(i256, i256)
+            ivOverlay.visibility = View.INVISIBLE
+            ivBack.visibility = View.INVISIBLE
+            viewFinder.visibility = View.VISIBLE
+            imageSegmentation.applyBlur = false
             useDeeplab = false
         }
         btnGD.setOnClickListener {
             btnNothing.scaleX = 1f
             btnNothing.scaleY = 1f
-            btnBeach.scaleX = 1f
-            btnBeach.scaleY = 1f
+            btnBlur.scaleX = 1f
+            btnBlur.scaleY = 1f
             btnGD.scaleX = 1.4f
             btnGD.scaleY = 1.4f
             btnDL.scaleX = 1f
             btnDL.scaleY = 1f
 
-            imageSegmentation.backgroundImage =
-                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(i256, i256)
+            ivOverlay.visibility = View.VISIBLE
+            ivBack.visibility = View.VISIBLE
+            viewFinder.visibility = View.INVISIBLE
+            imageSegmentation.applyBlur = false
+            useDeeplab = false
+        }
+        btnBlur.setOnClickListener {
+            btnNothing.scaleX = 1f
+            btnNothing.scaleY = 1f
+            btnBlur.scaleX = 1.4f
+            btnBlur.scaleY = 1.4f
+            btnGD.scaleX = 1f
+            btnGD.scaleY = 1f
+            btnDL.scaleX = 1f
+            btnDL.scaleY = 1f
+
+            ivOverlay.visibility = View.VISIBLE
+            ivBack.visibility = View.INVISIBLE
+            viewFinder.visibility = View.INVISIBLE
+            imageSegmentation.applyBlur = true
             useDeeplab = false
         }
         btnDL.setOnClickListener {
             btnNothing.scaleX = 1f
             btnNothing.scaleY = 1f
-            btnBeach.scaleX = 1f
-            btnBeach.scaleY = 1f
+            btnBlur.scaleX = 1f
+            btnBlur.scaleY = 1f
             btnGD.scaleX = 1f
             btnGD.scaleY = 1f
             btnDL.scaleX = 1.4f
             btnDL.scaleY = 1.4f
 
-            imageSegmentation.backgroundImage =
-                getDrawable(R.drawable.gd)?.toBitmap()!!.scale(i256, i256)
+            ivOverlay.visibility = View.VISIBLE
+            ivBack.visibility = View.INVISIBLE
+            viewFinder.visibility = View.VISIBLE
+            imageSegmentation.applyBlur = false
             useDeeplab = true
         }
     }
@@ -169,29 +176,27 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+
     private fun analyze() {
-        imageSegmentation.backgroundImage?.let {
-            viewFinder.bitmap?.let { bitmap ->
-                val result = if (useDeeplab) {
-                    deepLabLite.segment(bitmap.scale(257, 257))
+        viewFinder.bitmap?.let { bitmap ->
+            val result = if (useDeeplab) {
+                deepLabLite.segment(bitmap.scale(257, 257))
 
-                } else {
-                    imageSegmentation.execute(
-                        bitmap, bitmap.width,
-                        bitmap.height
-                    )
-                }
-                runOnUiThread {
-                    ivOverlay.setImageBitmap(
-                        result
-                    )
-                }
+            } else {
+                imageSegmentation.execute(
+                    bitmap, bitmap.width,
+                    bitmap.height
+                )
             }
-        }
-        runOnUiThread {
-            ivOverlay.visibility =
-                if (imageSegmentation.backgroundImage == null) View.GONE else View.VISIBLE
-
+            runOnUiThread {
+           //     val diff = System.currentTimeMillis() - timestamp
+           //     if (diff > 0)
+           //         tvInfo.text = (1000f / diff).toString() + "fps"
+                ivOverlay.setImageBitmap(
+                    result
+                )
+                timestamp = System.currentTimeMillis()
+            }
         }
     }
 

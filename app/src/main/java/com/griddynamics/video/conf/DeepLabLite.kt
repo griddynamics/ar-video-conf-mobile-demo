@@ -5,6 +5,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.text.TextUtils
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.get
+import androidx.core.graphics.scale
 
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
@@ -22,6 +25,8 @@ class DeepLabLite {
     private var mOutputs: ByteBuffer? = null
     private lateinit var mSegmentBits: Array<IntArray>
     private lateinit var mSegmentColors: IntArray
+    private lateinit var bitmapBeach: Bitmap
+
     fun initialize(context: Context?): Boolean {
         if (context == null) {
             return false
@@ -50,6 +55,8 @@ class DeepLabLite {
                 mSegmentColors[i] = Color.TRANSPARENT
             }
         }
+        bitmapBeach = context.getDrawable(R.drawable.beach)?.toBitmap()!!.scale(257, 257)
+
         return mModelBuffer != null
     }
 
@@ -122,7 +129,11 @@ class DeepLabLite {
                         mSegmentBits[x][y] = c
                     }
                 }
-                maskBitmap.setPixel(x, y, mSegmentColors[mSegmentBits[x][y]])
+                if (mSegmentBits[x][y] == 0) {
+                    maskBitmap.setPixel(x, y, bitmapBeach[x, y])
+                } else {
+                    maskBitmap.setPixel(x, y, mSegmentColors[mSegmentBits[x][y]])
+                }
             }
         }
         return maskBitmap

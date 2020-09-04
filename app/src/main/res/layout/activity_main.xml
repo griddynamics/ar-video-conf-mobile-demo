@@ -7,6 +7,17 @@
     tools:context=".MainActivity">
 
     <ImageView
+        android:id="@+id/ivBack"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginBottom="16dp"
+        android:elevation="1dp"
+        android:scaleType="fitXY"
+        android:src="@drawable/gd"
+        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
+        app:layout_constraintTop_toTopOf="@+id/viewFinder" />
+
+    <ImageView
         android:id="@+id/ivOverlay"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -21,8 +32,17 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginBottom="16dp"
+        android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/btnNothing"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="100fps"
+        android:elevation="1dp"
+        app:layout_constraintEnd_toEndOf="@+id/ivBack" />
 
     <ImageButton
         android:id="@+id/btnNothing"
@@ -44,16 +64,16 @@
         android:background="@drawable/gd_logo"
         android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnBeach"
+        app:layout_constraintEnd_toStartOf="@+id/btnBlur"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/btnNothing" />
 
     <ImageButton
-        android:id="@+id/btnBeach"
+        android:id="@+id/btnBlur"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:layout_marginBottom="16dp"
-        android:background="@drawable/beach_logo"
+        android:background="@drawable/blur_logo"
         android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/btnDL"
@@ -64,13 +84,13 @@
         android:id="@+id/btnDL"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:background="@null"
         android:layout_marginBottom="16dp"
-        android:text="DL"
+        android:background="@null"
         android:elevation="10dp"
+        android:text="DL"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/btnBeach" />
+        app:layout_constraintStart_toEndOf="@+id/btnBlur" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

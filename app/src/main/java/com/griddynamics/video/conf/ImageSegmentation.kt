@@ -1,85 +1,123 @@
 package com.griddynamics.video.conf
 
 import android.annotation.SuppressLint
-import android.graphics.Bitmap
-import android.graphics.Color
-import androidx.core.graphics.blue
-import androidx.core.graphics.get
-import androidx.core.graphics.green
-import androidx.core.graphics.red
+import android.graphics.*
+import android.util.Log
+import androidx.core.graphics.scale
+import com.commit451.nativestackblur.NativeStackBlur
 import com.griddynamics.video.conf.utils.ImageUtils
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+
 class ImageSegmentation(
     private val interpreter: Interpreter
 ) {
 
-    private val segmentationMask: ByteBuffer = ByteBuffer.allocateDirect(imageSize * imageSize * 4)
-    var backgroundImage: Bitmap? = null
+    private val segmentationMask: ByteBuffer =
+        ByteBuffer.allocateDirect(IMAGE_SIZE * IMAGE_SIZE * 4)
+    var applyBlur = false
 
     init {
         segmentationMask.order(ByteOrder.nativeOrder())
     }
 
     companion object {
-        private const val imageSize = 32
+        private const val BLUR_RADIUS = 25
+        private const val IMAGE_SIZE = 32
         private const val IMAGE_MEAN = 0.0f
         private const val IMAGE_STD = 255.0f
     }
 
     @SuppressLint("NewApi")
     fun execute(bitmap: Bitmap, width: Int, height: Int): Bitmap {
-        if(backgroundImage == null)
-            return bitmap
         val scaledBitmap =
             ImageUtils.scaleBitmapAndKeepRatio(
                 bitmap,
-                imageSize,
-                imageSize
+                IMAGE_SIZE,
+                IMAGE_SIZE
             )
 
         val normalized =
             ImageUtils.bitmapToByteBuffer(
                 scaledBitmap,
-                imageSize,
-                imageSize,
+                IMAGE_SIZE,
+                IMAGE_SIZE,
                 IMAGE_MEAN,
                 IMAGE_STD
             )
+        val start = System.currentTimeMillis()
         interpreter.run(normalized, segmentationMask)
+        Log.d("timelap interpreter", (System.currentTimeMillis() - start).toString())
         return convertByteBufferMaskToBitmap(
+            bitmap,
             segmentationMask,
-            imageSize,
-            imageSize
+            IMAGE_SIZE,
+            IMAGE_SIZE
         )
     }
 
     private fun convertByteBufferMaskToBitmap(
+        bitmapOrig: Bitmap,
         inputBuffer: ByteBuffer,
         imageWidth: Int,
         imageHeight: Int
     ): Bitmap {
         val conf = Bitmap.Config.ARGB_8888
-        val maskBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
+        var maskBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
         inputBuffer.rewind()
-        backgroundImage?.let {
-            for (y in 0 until imageHeight) {
-                for (x in 0 until imageWidth) {
-                    val index = y * imageWidth + x
-                    val value = inputBuffer.getFloat(index * 4)
-                    val segmentColor = Color.argb(
-                        ((1 - value) * 255).toInt(),
-                        it[x, y].red,
-                        it[x, y].green,
-                        it[x, y].blue
-                    )
+        var start = System.currentTimeMillis()
 
-                    maskBitmap.setPixel(x, y, segmentColor)
-                }
+        for (y in 0 until imageHeight) {
+            for (x in 0 until imageWidth) {
+                val index = y * imageWidth + x
+                val value = inputBuffer.getFloat(index * 4)
+                val segmentColor = Color.argb(
+                    ((value) * 255).toInt(),
+                    0,
+                    0,
+                    0
+                )
+
+                maskBitmap.setPixel(x, y, segmentColor)
             }
         }
-        return maskBitmap
+        val origBitmap: Bitmap = bitmapOrig.scale(256, 256)
+        maskBitmap = maskBitmap.scale(256, 256)
+        Log.d("timelap scale", (System.currentTimeMillis() - start).toString())
+
+        start = System.currentTimeMillis()
+        val result = overlay(maskBitmap, origBitmap)
+        Log.d("timelap for overlay", (System.currentTimeMillis() - start).toString())
+
+        if (applyBlur) {
+            start = System.currentTimeMillis()
+
+            val blur = NativeStackBlur.process(origBitmap, BLUR_RADIUS)
+            val resultBlur = overlaySimple(blur, result)
+            Log.d("timelap for blur", (System.currentTimeMillis() - start).toString())
+
+            return resultBlur
+        }
+        return result
+    }
+
+    private fun overlay(bmp2: Bitmap, bmp3: Bitmap): Bitmap {
+        val bmOverlay = Bitmap.createBitmap(bmp2.width, bmp2.height, bmp2.config)
+        val canvas = Canvas(bmOverlay)
+        val paint = Paint();
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP);
+        canvas.drawBitmap(bmp2, Matrix(), null)
+        canvas.drawBitmap(bmp3, 0f, 0f, paint)
+        return bmOverlay
+    }
+
+    private fun overlaySimple(bmp1: Bitmap, bmp2: Bitmap): Bitmap {
+        val bmOverlay = Bitmap.createBitmap(bmp1.width, bmp1.height, bmp1.config)
+        val canvas = Canvas(bmOverlay)
+        canvas.drawBitmap(bmp1, Matrix(), null)
+        canvas.drawBitmap(bmp2, 0f, 0f, null)
+        return bmOverlay
     }
 }
