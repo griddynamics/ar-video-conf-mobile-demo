@@ -13,7 +13,7 @@ import java.nio.channels.FileChannel
 class ImageSegmentationFactory {
 
     companion object {
-        private const val imageSegmentationModel = "segm_model_32_32_8_0.07_latency_16fp.tflite"
+        private const val imageSegmentationModel = "semsegm_of8000_latency_16fp.tflite"
     }
 
     private lateinit var interpreter: Interpreter
