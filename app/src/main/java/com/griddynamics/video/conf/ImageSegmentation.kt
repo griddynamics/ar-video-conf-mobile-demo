@@ -31,7 +31,7 @@ class ImageSegmentation(
     }
 
     @SuppressLint("NewApi")
-    fun execute(bitmap: Bitmap, width: Int, height: Int): Bitmap {
+    fun execute(bitmap: Bitmap): Bitmap {
         val scaledBitmap =
             ImageUtils.scaleBitmapAndKeepRatio(
                 bitmap,

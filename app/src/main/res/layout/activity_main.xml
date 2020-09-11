@@ -36,13 +36,21 @@
         app:layout_constraintBottom_toTopOf="@+id/btnNothing"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <com.griddynamics.video.conf.OverlayView
+        android:id="@+id/gestureOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/tvInfo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        tools:text="100fps"
         android:elevation="1dp"
-        app:layout_constraintEnd_toEndOf="@+id/ivBack" />
+        app:layout_constraintEnd_toEndOf="@+id/ivBack"
+        tools:text="100fps" />
 
     <ImageButton
         android:id="@+id/btnNothing"
@@ -76,18 +84,18 @@
         android:background="@drawable/blur_logo"
         android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnDL"
+        app:layout_constraintEnd_toStartOf="@+id/btnHand"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/btnGD" />
 
     <Button
-        android:id="@+id/btnDL"
+        android:id="@+id/btnHand"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:layout_marginBottom="16dp"
         android:background="@null"
         android:elevation="10dp"
-        android:text="DL"
+        android:text="Hand"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"

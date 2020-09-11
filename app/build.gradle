@@ -49,4 +49,6 @@ dependencies {
     implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
 
     implementation 'com.github.Commit451:NativeStackBlur:1.0.5'
+    implementation 'com.quickbirdstudios:opencv:4.1.0'
+    implementation 'com.quickbirdstudios:opencv:4.1.0-contrib'
 }

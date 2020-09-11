@@ -1,9 +1,6 @@
 package com.griddynamics.video.conf
 
 import android.content.Context
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
 import java.io.IOException
@@ -13,13 +10,13 @@ import java.nio.channels.FileChannel
 class ImageSegmentationFactory {
 
     companion object {
-        private const val imageSegmentationModel = "segm_model_32_32_8_0.07_latency_16fp.tflite"
+        const val maskModel = "segm_model_32_32_8_0.07_latency_16fp.tflite"
     }
 
     private lateinit var interpreter: Interpreter
 
     fun provideCustom(context: Context): ImageSegmentation {
-        interpreter = getInterpreter(context, imageSegmentationModel)
+        interpreter = getInterpreter(context, maskModel)
         return ImageSegmentation(interpreter)
     }
 
