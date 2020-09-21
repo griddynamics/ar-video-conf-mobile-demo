@@ -69,6 +69,15 @@ public class PalmDetectionActivity extends AppCompatActivity {
         previewDisplayView = new SurfaceView(this);
         setupPreviewDisplayView();
         txtGesture = findViewById(R.id.txtGesture);
+        findViewById(R.id.btnNothing).setOnClickListener((v) -> {
+            finish();
+        });
+        findViewById(R.id.btnGD).setOnClickListener((v) -> {
+            finish();
+        });
+        findViewById(R.id.btnBlur).setOnClickListener((v) -> {
+            finish();
+        });
         txtGesture.bringToFront();
         // Initialize asset manager so that MediaPipe native libraries can access the app assets, e.g.,
         // binary graphs.

@@ -8,5 +8,7 @@
         <item name="windowNoTitle">true</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
-
+    <style name="noAnimTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

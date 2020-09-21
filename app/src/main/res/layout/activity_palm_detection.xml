@@ -1,28 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
     <FrameLayout
         android:id="@+id/preview_display_layout"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginBottom="16dp"
         android:layout_weight="1"
+        app:layout_constraintBottom_toTopOf="@+id/btnBlur"
+        app:layout_constraintTop_toTopOf="parent"
         tools:ignore="MissingConstraints">
+
         <TextView
             android:id="@+id/txtGesture"
-            android:layout_height="wrap_content"
             android:layout_width="wrap_content"
-            android:textColor="#FF00"
-            android:textSize="36sp"
-            android:textStyle="bold"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center"
+            android:layout_marginBottom="10dp"
             android:text="UNKNOWN"
-            tools:text="UNKNOWN" />
+            android:textColor="#F36565"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
         <TextView
             android:id="@+id/no_camera_access_view"
-            android:layout_height="fill_parent"
             android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
             android:gravity="center"
             android:text="no" />
     </FrameLayout>
+
+    <ImageButton
+        android:id="@+id/btnNothing"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/nothing_logo"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnGD"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btnGD"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/gd_logo"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnBlur"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/btnNothing" />
+
+    <ImageButton
+        android:id="@+id/btnBlur"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/blur_logo"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnDL"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/btnGD" />
+
+    <ImageButton
+        android:id="@+id/btnDL"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/hand"
+        android:elevation="10dp"
+        android:scaleX="1.4"
+        android:scaleY="1.4"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/btnBlur" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

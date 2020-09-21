@@ -232,7 +232,6 @@ fun Image.toJPEGBitmap(rotation: Int): Bitmap {
 }
 
 fun ImageProxy.toYUV420Bitmap(): Bitmap {
-    val i256 = 256
     val yBuffer = planes[0].buffer // Y
     val uBuffer = planes[1].buffer // U
     val vBuffer = planes[2].buffer // V
@@ -243,16 +242,14 @@ fun ImageProxy.toYUV420Bitmap(): Bitmap {
 
     val nv21 = ByteArray(ySize + uSize + vSize)
 
+    //U and V are swapped
     yBuffer.get(nv21, 0, ySize)
     vBuffer.get(nv21, ySize, vSize)
     uBuffer.get(nv21, ySize + vSize, uSize)
 
     val yuvImage = YuvImage(nv21, ImageFormat.NV21, this.width, this.height, null)
     val out = ByteArrayOutputStream()
-    yuvImage.compressToJpeg(Rect(0, 0, i256, i256), 100, out)
+    yuvImage.compressToJpeg(Rect(0, 0, yuvImage.width, yuvImage.height), 50, out)
     val imageBytes = out.toByteArray()
-    val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-    val matrix = Matrix()
-    matrix.postRotate(90f)
-    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
 }
