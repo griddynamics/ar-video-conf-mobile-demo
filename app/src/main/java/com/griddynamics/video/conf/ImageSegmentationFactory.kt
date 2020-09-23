@@ -1,6 +1,7 @@
 package com.griddynamics.video.conf
 
 import android.content.Context
+import com.griddynamics.video.conf.pref.DeviceInfo
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
 import java.io.IOException
@@ -17,6 +18,7 @@ class ImageSegmentationFactory {
 
     fun provideCustom(context: Context): ImageSegmentation {
         interpreter = getInterpreter(context, maskModel)
+        DeviceInfo.model = maskModel
         return ImageSegmentation(interpreter)
     }
 

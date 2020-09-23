@@ -50,7 +50,8 @@
         android:layout_height="wrap_content"
         android:elevation="1dp"
         app:layout_constraintEnd_toEndOf="@+id/ivBack"
-        tools:text="100fps" />
+        tools:text="100fps"
+        tools:ignore="MissingConstraints" />
 
     <ImageButton
         android:id="@+id/btnNothing"
@@ -72,33 +73,8 @@
         android:background="@drawable/gd_logo"
         android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnBlur"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/btnNothing" />
-
-    <ImageButton
-        android:id="@+id/btnBlur"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginBottom="16dp"
-        android:background="@drawable/blur_logo"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnHand"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/btnGD" />
-
-    <Button
-        android:id="@+id/btnHand"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginBottom="16dp"
-        android:background="@null"
-        android:elevation="10dp"
-        android:text="Hand"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/btnBlur" />
+        app:layout_constraintStart_toEndOf="@+id/btnNothing" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

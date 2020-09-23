@@ -4,6 +4,11 @@ import android.os.Build
 
 class BuildUtils {
     companion object {
+
+        val deviceInfo = "MANUFACTURER: " + Build.MANUFACTURER +
+                ", PRODUCT: " + Build.PRODUCT + ", BRAND:" + Build.BRAND +
+                ", MODEL:" + Build.MODEL
+
         fun isEmulator(): Boolean {
             return (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic")
                     || Build.FINGERPRINT.startsWith("generic")

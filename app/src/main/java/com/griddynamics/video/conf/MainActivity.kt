@@ -3,7 +3,6 @@ package com.griddynamics.video.conf
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.graphics.*
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -16,9 +15,11 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.scale
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.griddynamics.video.conf.pref.DeviceInfo
+import com.griddynamics.video.conf.utils.BuildUtils
 import com.griddynamics.video.conf.utils.BuildUtils.Companion.isEmulator
-import com.griddynamics.video.conf.utils.getTransformationMatrixContain
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,14 +35,8 @@ class MainActivity : AppCompatActivity() {
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
 
         private const val REQUEST_CODE_PERMISSIONS = 10
-        private const val TF_OD_API_INPUT_SIZE = 256
-        private const val TF_OD_API_IS_QUANTIZED = false
-        private const val TF_OD_API_MODEL_FILE = "palm_detection_without_custom_op.tflite"
-        private const val TF_OD_API_LABELS_FILE =
-            "file:///android_asset/palm_detection_labelmap.txt"
     }
 
-    private lateinit var tracker: MultiBoxTracker
     private val coroutineScope = CoroutineScope(Job())
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
@@ -49,13 +44,9 @@ class MainActivity : AppCompatActivity() {
     private val i256 = 256
     private val deepLabLite: DeepLabLite = DeepLabLite()
     private lateinit var maskImageSegmentation: ImageSegmentation
-    private lateinit var handModel: Classifier
     private val imageSegmentationFactory = ImageSegmentationFactory()
-    private var useDeeplab = false
-    private var timestamp = System.currentTimeMillis()
-
-    private val cropToFrameTransform = Matrix()
-    private var frameToCropTransform = Matrix()
+    private var timestamp: Long? = null
+    private val db = Firebase.firestore
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,102 +64,50 @@ class MainActivity : AppCompatActivity() {
         }
         setupButtons()
 
-        coroutineScope.launch {
-            maskImageSegmentation = imageSegmentationFactory.provideCustom(applicationContext)
-            handModel = TFLiteObjectDetectionAPIModel.create(
-                assets,
-                TF_OD_API_MODEL_FILE,
-                TF_OD_API_LABELS_FILE,
-                TF_OD_API_INPUT_SIZE,
-                TF_OD_API_IS_QUANTIZED
+        if (DeviceInfo.uuid.isEmpty()) {
+            val uuid = UUID.randomUUID()
+            DeviceInfo.uuid = uuid.toString()
+            val device = hashMapOf(
+                "uuid" to DeviceInfo.uuid,
+                "info" to BuildUtils.deviceInfo
             )
 
-            frameToCropTransform = getTransformationMatrixContain(
-                1262,
-                720,
-                256,
-                256,
-                90,
-                true
-            )
-            frameToCropTransform.invert(cropToFrameTransform)
+            db.collection("devices")
+                .add(device)
+        }
+        coroutineScope.launch {
+            maskImageSegmentation = imageSegmentationFactory.provideCustom(applicationContext)
             deepLabLite.initialize(applicationContext)
             runOnUiThread {
                 btnGD.callOnClick()
             }
         }
-        tracker = MultiBoxTracker(this)
-        gestureOverlay.addCallback { canvas ->
-            tracker.draw(canvas)
-        }
-
-        tracker.setFrameConfiguration(1262, 720, 90)
     }
 
     private fun setupButtons() {
         btnNothing.setOnClickListener {
             btnNothing.scaleX = 1.4f
             btnNothing.scaleY = 1.4f
-            btnBlur.scaleX = 1f
-            btnBlur.scaleY = 1f
             btnGD.scaleX = 1f
             btnGD.scaleY = 1f
-            btnHand.scaleX = 1f
-            btnHand.scaleY = 1f
 
             ivOverlay.visibility = View.INVISIBLE
             ivBack.visibility = View.INVISIBLE
             viewFinder.visibility = View.VISIBLE
             maskImageSegmentation.applyBlur = false
-            useDeeplab = false
         }
         btnGD.setOnClickListener {
             btnNothing.scaleX = 1f
             btnNothing.scaleY = 1f
-            btnBlur.scaleX = 1f
-            btnBlur.scaleY = 1f
             btnGD.scaleX = 1.4f
             btnGD.scaleY = 1.4f
-            btnHand.scaleX = 1f
-            btnHand.scaleY = 1f
 
             ivOverlay.visibility = View.VISIBLE
             ivBack.visibility = View.VISIBLE
             viewFinder.visibility = View.INVISIBLE
             maskImageSegmentation.applyBlur = false
-            useDeeplab = false
-        }
-        btnBlur.setOnClickListener {
-            btnNothing.scaleX = 1f
-            btnNothing.scaleY = 1f
-            btnBlur.scaleX = 1.4f
-            btnBlur.scaleY = 1.4f
-            btnGD.scaleX = 1f
-            btnGD.scaleY = 1f
-            btnHand.scaleX = 1f
-            btnHand.scaleY = 1f
 
-            ivOverlay.visibility = View.VISIBLE
-            ivBack.visibility = View.INVISIBLE
-            viewFinder.visibility = View.INVISIBLE
-            maskImageSegmentation.applyBlur = true
-            useDeeplab = false
-        }
-        btnHand.setOnClickListener {
-            btnNothing.scaleX = 1f
-            btnNothing.scaleY = 1f
-            btnBlur.scaleX = 1f
-            btnBlur.scaleY = 1f
-            btnGD.scaleX = 1f
-            btnGD.scaleY = 1f
-            btnHand.scaleX = 1.4f
-            btnHand.scaleY = 1.4f
-
-            ivOverlay.visibility = View.INVISIBLE
-            ivBack.visibility = View.INVISIBLE
-            viewFinder.visibility = View.VISIBLE
-            maskImageSegmentation.applyBlur = false
-            useDeeplab = true
+            timestamp = null
         }
     }
 
@@ -216,50 +155,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun analyze() {
         viewFinder.bitmap?.let { bitmap ->
-            if (useDeeplab) {
-                val tmp = bitmap.scale(256,256)
-                val results: List<Classifier.Recognition> =
-                    handModel.recognizeImage(tmp, tmp)
-
-
-                val cropCopyBitmap = Bitmap.createBitmap(tmp)
-                val canvas = Canvas(cropCopyBitmap)
-                val paint = Paint()
-                paint.color = Color.RED
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 2.0f
-
-                val mappedRecognitions: MutableList<Classifier.Recognition> = LinkedList()
-
-                for (result in results) {
-                    val location = result.location
-                    if (location != null && result.confidence >= 0) {
-                        canvas.drawRect(location, paint)
-
-                        cropToFrameTransform.mapRect(location)
-                        result.location = location
-                        mappedRecognitions.add(result)
-                    }
-                }
-                runOnUiThread {
-                    tracker.trackResults(mappedRecognitions, System.currentTimeMillis())
-                    gestureOverlay.postInvalidate()
-                }
-            } else {
-                val result = maskImageSegmentation.execute(
-                    bitmap
+            val result = maskImageSegmentation.execute(
+                bitmap
+            )
+            runOnUiThread {
+                ivOverlay.setImageBitmap(
+                    result
                 )
-                runOnUiThread {
-                    //     val diff = System.currentTimeMillis() - timestamp
-                    //     if (diff > 0)
-                    //         tvInfo.text = (1000f / diff).toString() + "fps"
-                    ivOverlay.setImageBitmap(
-                        result
+                timestamp?.let {
+                    val log = hashMapOf(
+                        "uuid" to DeviceInfo.uuid,
+                        "model" to DeviceInfo.model,
+                        "tag" to "fps",
+                        "info" to System.currentTimeMillis() - it
                     )
-                    timestamp = System.currentTimeMillis()
+                    db.collection("logs").add(log)
                 }
+                timestamp = System.currentTimeMillis()
             }
-
         }
     }
 

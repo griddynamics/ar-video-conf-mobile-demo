@@ -5,6 +5,9 @@ import android.graphics.*
 import android.util.Log
 import androidx.core.graphics.scale
 import com.commit451.nativestackblur.NativeStackBlur
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.griddynamics.video.conf.pref.DeviceInfo
 import com.griddynamics.video.conf.utils.ImageUtils
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
@@ -14,6 +17,7 @@ import java.nio.ByteOrder
 class ImageSegmentation(
     private val interpreter: Interpreter
 ) {
+    private val db = Firebase.firestore
 
     private val segmentationMask: ByteBuffer =
         ByteBuffer.allocateDirect(IMAGE_SIZE * IMAGE_SIZE * 4)
@@ -32,6 +36,7 @@ class ImageSegmentation(
 
     @SuppressLint("NewApi")
     fun execute(bitmap: Bitmap): Bitmap {
+        val startTotal = System.currentTimeMillis();
         val scaledBitmap =
             ImageUtils.scaleBitmapAndKeepRatio(
                 bitmap,
@@ -49,13 +54,31 @@ class ImageSegmentation(
             )
         val start = System.currentTimeMillis()
         interpreter.run(normalized, segmentationMask)
-        Log.d("timelap interpreter", (System.currentTimeMillis() - start).toString())
-        return convertByteBufferMaskToBitmap(
+        val inference = System.currentTimeMillis() - start
+        Log.d("timelap interpreter", (inference).toString())
+        val result = convertByteBufferMaskToBitmap(
             bitmap,
             segmentationMask,
             IMAGE_SIZE,
             IMAGE_SIZE
         )
+
+        val logTotal = hashMapOf(
+            "uuid" to DeviceInfo.uuid,
+            "model" to DeviceInfo.model,
+            "tag" to "total processing",
+            "info" to System.currentTimeMillis() - startTotal
+        )
+        val logInference = hashMapOf(
+            "uuid" to DeviceInfo.uuid,
+            "model" to DeviceInfo.model,
+            "tag" to "inference",
+            "info" to inference
+        )
+        db.collection("logs").add(logInference)
+        db.collection("logs").add(logTotal)
+
+        return result
     }
 
     private fun convertByteBufferMaskToBitmap(
