@@ -25,7 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
-import org.opencv.android.OpenCVLoader
 import java.util.*
 import java.util.concurrent.Executors
 
@@ -42,7 +41,6 @@ class MainActivity : AppCompatActivity() {
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
     private val i256 = 256
-    private val deepLabLite: DeepLabLite = DeepLabLite()
     private lateinit var maskImageSegmentation: ImageSegmentation
     private val imageSegmentationFactory = ImageSegmentationFactory()
     private var timestamp: Long? = null
@@ -77,43 +75,31 @@ class MainActivity : AppCompatActivity() {
         }
         coroutineScope.launch {
             maskImageSegmentation = imageSegmentationFactory.provideCustom(applicationContext)
-            deepLabLite.initialize(applicationContext)
-            runOnUiThread {
-                btnGD.callOnClick()
-            }
         }
     }
 
     private fun setupButtons() {
-        btnNothing.setOnClickListener {
-            btnNothing.scaleX = 1.4f
-            btnNothing.scaleY = 1.4f
-            btnGD.scaleX = 1f
-            btnGD.scaleY = 1f
-
-            ivOverlay.visibility = View.INVISIBLE
-            ivBack.visibility = View.INVISIBLE
-            viewFinder.visibility = View.VISIBLE
-            maskImageSegmentation.applyBlur = false
-        }
-        btnGD.setOnClickListener {
-            btnNothing.scaleX = 1f
-            btnNothing.scaleY = 1f
-            btnGD.scaleX = 1.4f
-            btnGD.scaleY = 1.4f
-
-            ivOverlay.visibility = View.VISIBLE
-            ivBack.visibility = View.VISIBLE
-            viewFinder.visibility = View.INVISIBLE
-            maskImageSegmentation.applyBlur = false
-
-            timestamp = null
+        navigation.selectedItemId = R.id.action_mask
+        navigation.setOnNavigationItemSelectedListener {
+            when (it.itemId) {
+                R.id.action_clear -> {
+                    ivOverlay.visibility = View.INVISIBLE
+                    ivBack.visibility = View.INVISIBLE
+                    viewFinder.visibility = View.VISIBLE
+                }
+                else -> {
+                    ivOverlay.visibility = View.VISIBLE
+                    ivBack.visibility = View.VISIBLE
+                    viewFinder.visibility = View.INVISIBLE
+                    timestamp = null
+                }
+            }
+            true
         }
     }
 
     @SuppressLint("NewApi")
     private fun startCamera() {
-        OpenCVLoader.initDebug()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener(Runnable {
             // Used to bind the lifecycle of cameras to the lifecycle owner
@@ -126,7 +112,7 @@ class MainActivity : AppCompatActivity() {
                 .also {
                     it.setAnalyzer(
                         Executors.newWorkStealingPool(),
-                        ImageAnalysis.Analyzer { image ->
+                        { image ->
                             analyze()
                             image.close()
                         })
@@ -145,7 +131,7 @@ class MainActivity : AppCompatActivity() {
                 camera = cameraProvider.bindToLifecycle(
                     this, cameraSelector, preview, imageAnalyzer
                 )
-                preview?.setSurfaceProvider(viewFinder.createSurfaceProvider())
+                preview?.setSurfaceProvider(viewFinder.surfaceProvider)
             } catch (exc: Exception) {
                 Log.e(javaClass.name, "Use case binding failed", exc)
             }

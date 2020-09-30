@@ -6,42 +6,43 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <ImageButton
+        android:id="@+id/imageButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/ic_filter_state"
+        android:contentDescription="@null"
+        android:elevation="2dp"
+        android:padding="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <ImageView
         android:id="@+id/ivBack"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
         android:elevation="1dp"
         android:scaleType="fitXY"
         android:src="@drawable/gd"
-        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
+        app:layout_constraintBottom_toTopOf="@+id/navigation"
         app:layout_constraintTop_toTopOf="@+id/viewFinder" />
 
     <ImageView
         android:id="@+id/ivOverlay"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
         android:elevation="1dp"
         android:scaleType="fitXY"
-        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
+        app:layout_constraintBottom_toTopOf="@+id/navigation"
         app:layout_constraintTop_toTopOf="@+id/viewFinder" />
 
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
         android:visibility="invisible"
-        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.griddynamics.video.conf.OverlayView
-        android:id="@+id/gestureOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/btnNothing"
+        app:layout_constraintBottom_toTopOf="@+id/navigation"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
@@ -49,32 +50,31 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:elevation="1dp"
+        app:layout_constraintBottom_toBottomOf="@+id/ivBack"
         app:layout_constraintEnd_toEndOf="@+id/ivBack"
-        tools:text="100fps"
-        tools:ignore="MissingConstraints" />
+        app:layout_constraintStart_toStartOf="parent"
+        tools:ignore="MissingConstraints"
+        tools:text="100fps" />
 
-    <ImageButton
-        android:id="@+id/btnNothing"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginBottom="16dp"
-        android:background="@drawable/nothing_logo"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnGD"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <ImageButton
-        android:id="@+id/btnGD"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginBottom="16dp"
-        android:background="@drawable/gd_logo"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:src="@drawable/ic_baseline_camera_alt_24"
+        app:backgroundTint="#FF2D2D2D"
+        app:layout_constraintBottom_toBottomOf="@+id/ivBack"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/btnNothing" />
+        app:tint="#9E9E9E" />
 
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:itemIconSize="32dp"
+        app:itemIconTint="@drawable/bottom_nav_colors"
+        app:itemTextColor="@drawable/bottom_nav_colors"
+        app:labelVisibilityMode="unlabeled"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:menu="@menu/my_navigation_items" />
 </androidx.constraintlayout.widget.ConstraintLayout>
