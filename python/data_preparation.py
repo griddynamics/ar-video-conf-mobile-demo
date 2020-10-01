@@ -11,7 +11,121 @@ from tqdm import tqdm
 from PIL import Image
 from pprint import pprint
 
+
+ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 PASCAL_VOC_PERSON_CLASS_ID = 15
+AUGMENTATIONS = dict(
+    rotation_range=15.,
+    width_shift_range=0.05,
+    height_shift_range=0.05,
+    shear_range=50,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    vertical_flip=False,
+    fill_mode='constant'
+)
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+FEATURE_DESCRIPTION = {
+    'x': tf.io.FixedLenFeature((), tf.string),
+    'y': tf.io.FixedLenFeature((), tf.string),
+}
+
+def prepare_process_dataset_into_memory(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
+                    coco_home='/home/aholdobin/faces/',
+                    shape=(32, 32),
+                    verbose=False):
+    gc.collect()
+
+    Xs = []
+    Ys = []
+    # LOADING PASCAL_VOC DATA IF PROVIDED
+    images = []
+    masks = []
+
+    if pascal_voc_home and os.path.exists(pascal_voc_home):
+        segmentation_meta_path = pascal_voc_home + 'ImageSets/Segmentation/trainval.txt'
+        segmentation_folder = pascal_voc_home + 'SegmentationClass/'
+        images_folder = pascal_voc_home + 'JPEGImages/'
+
+        with open(segmentation_meta_path) as f:
+            segmentation_files = f.read().split('\n')
+
+        for file in tqdm(segmentation_files):
+            if file and os.path.exists(images_folder + file + '.jpg'):
+                images.append(np.array(Image.open(
+                    images_folder + file + '.jpg').resize(shape), dtype='float32'))
+                masks.append(cv2.resize((np.array(Image.open(
+                    segmentation_folder + file + '.png')) == PASCAL_VOC_PERSON_CLASS_ID).astype('float32'), dsize=shape))
+
+        x_pv = np.array(images, dtype='float32')/255.
+        y_pv = np.array(masks, dtype='float16')
+        
+        del images
+        del masks
+        gc.collect()
+
+        right = np.reshape(
+            y_pv, [y_pv.shape[0], shape[0]*shape[1]]).mean(axis=1)
+        right = (right > .15) | (right == .0)
+        if verbose:
+            print(sum(right))
+        x_pv = x_pv[right]
+        y_pv = y_pv[right]
+
+        Xs.append(x_pv)
+        Ys.append(y_pv)
+
+        if verbose:
+            print("x_pv: ", x_pv.shape)
+            print("y_pv: ", y_pv.shape)
+
+        
+    # LOADING COCO DATA IF PROVIDED
+    if coco_home and os.path.exists(coco_home):
+        images = []
+        masks = []
+        files = os.listdir(coco_home+'images/')
+        if verbose:
+            print('files len', len(files))
+        files = list(
+            map(lambda x: x[:-4] if x.endswith('jpg') else None, files))
+        for file in tqdm(files):
+            if file and os.path.exists(coco_home + f'images/{file}.jpg'):
+                images.append(
+                    np.array(Image.open(coco_home + f'images/{file}.jpg').resize(shape), dtype='float32'))
+                masks.append(
+                    np.array(Image.open(coco_home + f'masks/{file}.png').resize(shape))[:, :, -1])
+
+        x_c = np.asarray(images, dtype='float32') / 255
+        del images
+        gc.collect()
+        y_c = np.asarray(masks, dtype='float16') / 255
+        del masks
+        gc.collect()
+        Xs.append(x_c)
+        Ys.append(y_c)
+
+    if len(Xs) == 0:
+        raise ValueError('Need at least 1 source of data')
+
+    X = np.concatenate(Xs)
+    y = np.concatenate(Ys)
+    y = np.reshape(y, (y.shape[0], y.shape[1], y.shape[2], 1))
+
+    del Xs
+    del Ys
+    gc.collect()
+    
+    x_train, x_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.30, random_state=0)
+
+    if verbose:
+        print("x_train: ", x_train.shape)
+        print("y_train: ", y_train.shape)
+        print("x_val: ", x_val.shape)
+        print("y_val: ", y_val.shape)
+
+    return x_train, y_train, x_val, y_val
 
 
 def _bytes_feature(value):
@@ -30,20 +144,6 @@ def serialize_segmentation_example(x, y):
     return example.SerializeToString()
 
 
-def read_tfrecord(serialized_example):
-    feature_description = {
-        'x': tf.io.FixedLenFeature((), tf.string),
-        'y': tf.io.FixedLenFeature((), tf.string),
-    }
-    example = tf.io.parse_single_example(
-        serialized_example, feature_description)
-
-    x = tf.io.parse_tensor(example['x'], out_type=tf.float32)
-    y = tf.io.parse_tensor(example['y'], out_type=tf.float32)
-
-    return x, y
-
-
 def preprocess_store_coco(ds_train, ds_val,
                           dataset_home='/home/aholdobin/faces/',
                           tfrecords_dest='/home/aholdobin/tfrecords/',
@@ -60,7 +160,7 @@ def preprocess_store_coco(ds_train, ds_val,
                         dataset_home + f'images/{file}.jpg').resize(shape), dtype='float32')/255.
                     y = np.array(Image.open(
                         dataset_home + f'masks/{file}.png').resize(shape), dtype='float32')[:, :, -1]/255.
-                    serialized_example = serialize_segmentation_example(x, y)
+                    serialized_example = serialize_segmentation_example(x, y.reshape([y.shape[0], y.shape[1], 1]))
                     writer.write(serialized_example)
         filenames.append(record_name)
         gc.collect()
@@ -71,6 +171,10 @@ def preprocess_store_coco(ds_train, ds_val,
     NUMBER_OF_EXAMPLES_IN_FILE = 200 * 10**6 // (shape[0] * shape[1] * 3 * 4)
 
     if dataset_home and os.path.exists(dataset_home):
+
+        if verbose:
+            print('Processinng and storing COCO Portrait dataset')
+        
         files = os.listdir(dataset_home+'images/')
 
         filename_pattern = "cocoportrait_{}x{}_{}_{}.tfrecord"
@@ -115,7 +219,7 @@ def preprocess_store_pascal(ds_train, ds_val,
                         continue
                     x = np.array(Image.open(images_folder + file +
                                             '.jpg').resize(shape), dtype='float32')/255.
-                    serialized_example = serialize_segmentation_example(x, y)
+                    serialized_example = serialize_segmentation_example(x, y.reshape([y.shape[0], y.shape[1], 1]))
                     writer.write(serialized_example)
         filenames.append(record_name)
         gc.collect()
@@ -127,6 +231,9 @@ def preprocess_store_pascal(ds_train, ds_val,
 
     filenames = []
     if dataset_home and os.path.exists(dataset_home):
+
+        if verbose:
+            print('Processinng and storing PASCAL VOC dataset')
 
         segmentation_meta_path = dataset_home + 'ImageSets/Segmentation/trainval.txt'
         segmentation_folder = dataset_home + 'SegmentationClass/'
@@ -159,7 +266,7 @@ def preprocess_store_pascal(ds_train, ds_val,
     return ds_train, ds_val
 
 
-def prepare_and_store_dataset(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
+def prepare_and_store_tfrecord_dataset(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
                               coco_home='/home/aholdobin/faces/',
                               tfrecords_dest='/home/aholdobin/tfrecords/',
                               shape=(32, 32),
@@ -182,6 +289,81 @@ def prepare_and_store_dataset(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOC
         raise ValueError('Need at least 1 source of data')
 
     return tfrecords_dest, ds_train, ds_val
+
+
+def read_tfrecord(serialized_example):
+    example = tf.io.parse_single_example(
+        serialized_example, FEATURE_DESCRIPTION)
+
+    x = tf.io.parse_tensor(example['x'], out_type=tf.float32)
+    y = tf.io.parse_tensor(example['y'], out_type=tf.float32)
+
+    return x, y
+
+def read_augment_tfrecord_dataset(augmentations,
+                                  ds_home='/home/aholdobin/tfrecords/',
+                                  shape=(32, 32),
+                                  batch_size=32,
+                                  cache=True,
+                                  verbose=False):
+
+    def set_val_shape(x, y):
+        x.set_shape((shape[0], shape[1], 3))
+        y.set_shape((shape[0], shape[1], 1))
+        return x, y
+    
+    def read_prepare_tfrecordsdataset(ds,
+                                      batch_size=None,
+                                      augment=None):
+        ds = ds.map(read_tfrecord, num_parallel_calls=AUTOTUNE) 
+        if batch_size is None:
+            raise ValueError()
+        if cache:
+            ds = ds.cache()
+        if augment:
+            ds = (ds.shuffle(batch_size*2, seed=0, reshuffle_each_iteration=True)
+                  .repeat()
+                  .map(augment, num_parallel_calls=AUTOTUNE)
+                  .batch(batch_size, drop_remainder=False)
+                  .prefetch(AUTOTUNE))
+        else:
+            ds = (ds.map(set_val_shape, num_parallel_calls=AUTOTUNE)
+                  .batch(batch_size, drop_remainder=False)
+                  .prefetch(AUTOTUNE))
+        return ds
+    
+    generator = ImageDataGenerator(**augmentations)
+    
+    def augment(x, y):
+        rt = generator.get_random_transform((shape[0], shape[1], 3))
+        x_ = generator.apply_transform(x, rt)
+        # IMPORTANT: Changing parameters of ImageDataGenerator might require filter out transforms 
+        # which changes values of intensities such as brightness, contrast before applying to y
+        y_ = generator.apply_transform(y, rt)
+        return x_, y_
+    
+    def augment_tf(x, y):
+        x, y = tf.numpy_function(augment, [x, y], (tf.float32, tf.float32))
+        x.set_shape((shape[0], shape[1], 3))
+        y.set_shape((shape[0], shape[1], 1))
+        return x, y
+    
+    records = os.listdir(ds_home)
+    
+    shape_str = "{}x{}".format(shape[0], shape[1])
+    val_recs = [ds_home + rec for rec in records if rec.find('_val_') > 0 
+                    and rec.find(shape_str) >= 0]
+    train_recs = [ds_home + rec for rec in records if rec.find('_train_') > 0 
+                    and rec.find(shape_str) >= 0]
+    
+    train_ds = read_prepare_tfrecordsdataset(
+        tf.data.TFRecordDataset(train_recs, num_parallel_reads=AUTOTUNE),
+        batch_size=batch_size,
+        augment=augment_tf
+    )
+    val_ds = read_prepare_tfrecordsdataset(tf.data.TFRecordDataset(
+        train_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
+    return train_ds, val_ds
 
 
 if __name__ == "__main__":
@@ -237,8 +419,9 @@ if __name__ == "__main__":
         else:
             coco_home = None
 
-        tfrecord_destination,  ds_train, ds_val = prepare_and_store_dataset(
+        tfrecord_destination,  ds_train, ds_val = prepare_and_store_tfrecord_dataset(
             pascal_voc_home=pascal_voc_home, coco_home=coco_home, tfrecords_dest=tfrecord_destination, shape=input_shape, verbose=args.verbose)
-        pprint(ds_train)
-        pprint(ds_val)
+        if args.verbose:
+            pprint(ds_train)
+            pprint(ds_val)
         gc.collect()

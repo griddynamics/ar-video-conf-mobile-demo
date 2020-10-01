@@ -2,133 +2,27 @@ import os
 import gc
 import argparse
 import json
-import cv2
-import numpy as np
+# import cv2
+# import numpy as np
 import tensorflow as tf
-from PIL import Image
-from tqdm import tqdm
+# from PIL import Image
+# from tqdm import tqdm
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 from keras_unet.metrics import iou, iou_thresholded
 from keras_unet.models import custom_unet
 from keras_unet.utils import get_augmented
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
+import data_preparation
 
 
-PASCAL_VOC_PERSON_CLASS_ID = 15
+class GcCollectCallback(tf.keras.callbacks.Callback):
 
-
-def prepare_dataset(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
-                    coco_home='/home/aholdobin/faces/',
-                    shape=(32, 32),
-                    verbose=False):
-    gc.collect()
-
-    Xs = []
-    Ys = []
-    # LOADING PASCAL_VOC DATA IF PROVIDED
-    images = []
-    masks = []
-
-    if pascal_voc_home and os.path.exists(pascal_voc_home):
-        segmentation_meta_path = pascal_voc_home + 'ImageSets/Segmentation/trainval.txt'
-        segmentation_folder = pascal_voc_home + 'SegmentationClass/'
-        images_folder = pascal_voc_home + 'JPEGImages/'
-
-        with open(segmentation_meta_path) as f:
-            segmentation_files = f.read().split('\n')
-
-        for file in tqdm(segmentation_files):
-            if file and os.path.exists(images_folder + file + '.jpg'):
-                images.append(np.array(Image.open(
-                    images_folder + file + '.jpg').resize(shape), dtype='float32'))
-                masks.append(cv2.resize((np.array(Image.open(
-                    segmentation_folder + file + '.png')) == PASCAL_VOC_PERSON_CLASS_ID).astype('float32'), dsize=shape))
-
-        x_pv = np.array(images, dtype='float32')/255.
-        y_pv = np.array(masks, dtype='float16')
-        
-        del images
-        del masks
+    def on_epoch_end(self, epoch, logs=None):
         gc.collect()
-
-
-        right = np.reshape(
-            y_pv, [y_pv.shape[0], shape[0]*shape[1]]).mean(axis=1)
-        right = (right > .15) | (right == .0)
-        if verbose:
-            print(sum(right))
-        x_pv = x_pv[right]
-        y_pv = y_pv[right]
-
-        Xs.append(x_pv)
-        Ys.append(y_pv)
-
-        if verbose:
-            print("x_pv: ", x_pv.shape)
-            print("y_pv: ", y_pv.shape)
-
-        
-    # LOADING COCO DATA IF PROVIDED
-    if coco_home and os.path.exists(coco_home):
-        images = []
-        masks = []
-        files = os.listdir(coco_home+'images/')
-        if verbose:
-            print('files len', len(files))
-        files = list(
-            map(lambda x: x[:-4] if x.endswith('jpg') else None, files))
-        for file in tqdm(files):
-            if file and os.path.exists(coco_home + f'images/{file}.jpg'):
-                images.append(
-                    np.array(Image.open(coco_home + f'images/{file}.jpg').resize(shape), dtype='float32'))
-                masks.append(
-                    np.array(Image.open(coco_home + f'masks/{file}.png').resize(shape))[:, :, -1])
-
-        x_c = np.asarray(images, dtype='float32') / 255
-        del images
-        gc.collect()
-        y_c = np.asarray(masks, dtype='float16') / 255
-        del masks
-        gc.collect()
-        Xs.append(x_c)
-        Ys.append(y_c)
-
-    if len(Xs) == 0:
-        raise ValueError('Need at least 1 source of data')
-
-    X = np.concatenate(Xs)
-    y = np.concatenate(Ys)
-    y = np.reshape(y, (y.shape[0], y.shape[1], y.shape[2], 1))
-
-    del Xs
-    del Ys
-    gc.collect()
-    
-    x_train, x_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.30, random_state=0)
-
-    if verbose:
-        print("x_train: ", x_train.shape)
-        print("y_train: ", y_train.shape)
-        print("x_val: ", x_val.shape)
-        print("y_val: ", y_val.shape)
-
-    return x_train, y_train, x_val, y_val
 
 
 class AUnetBackgroundRemoval:
-
-    DEFAULT_AUGM_ARGS = dict(
-        rotation_range=15.,
-        width_shift_range=0.05,
-        height_shift_range=0.05,
-        shear_range=50,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        vertical_flip=False,
-        fill_mode='constant'
-    )
 
     def __init__(self, input_shape=(32, 32), filters=8, verbose=0, use_attention=True,
                  checkpoints_folder='training_grid'):
@@ -164,7 +58,46 @@ class AUnetBackgroundRemoval:
         if not os.path.exists(self.__checkpoints_folder):
             os.mkdir(self.__checkpoints_folder)
 
-    def train(self, x_train, y_train, x_val, y_val, epochs=1000, batch_size=1024, augm_args=DEFAULT_AUGM_ARGS):
+    def get_model(self):
+        return self.__model
+
+    def predict(self, x):
+        if len(x.shape == 3):
+            return self.__model.predict(x.reshape((1, * x.shape)))
+
+    def save_tflite(self, best=False):
+        if best:
+            checkpoints = os.listdir(self.__checkpoints_folder)
+            if len(checkpoints) == 0:
+                raise Exception('You must train model before restoring weights')
+            checkpoints = list(map(lambda x: (x, int(x[8:].split(
+                '-')[0])) if x.startswith('weights') else (x, -1), checkpoints))
+            checkpoints = sorted(checkpoints, key=lambda x: x[1])
+            name = checkpoints[-1][0]
+            self.__model.load_weights(os.path.join(
+                self.__checkpoints_folder, name))
+        optimizations = [
+            (tf.lite.Optimize.DEFAULT, tf.float32, "default_32fp"),
+            (tf.lite.Optimize.DEFAULT, tf.float16, "default_16fp"),
+            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float32, "latency_32fp"),
+            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float16, "latency_16fp")
+        ]
+
+        path = os.path.join(self.__checkpoints_folder, "tflite")
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        for optimization, tensor_type, name in optimizations:
+            converter = tf.lite.TFLiteConverter.from_keras_model(self.__model)
+            converter.post_training_quantize = True
+            converter.optimizations = [optimization]
+            converter.target_spec.supported_types = [tensor_type]
+            tflite_model = converter.convert()
+
+            with open(os.path.join(path, "{}_{}.tflite".format(self.__unique_name, name)), "wb") as f:
+                f.write(tflite_model)
+    
+    def train_from_memory(self, x_train, y_train, x_val, y_val, epochs=1000, batch_size=1024, augm_args=data_preparation.AUGMENTATIONS):
 
         train_gen = get_augmented(
             x_train, y_train, batch_size=batch_size,
@@ -191,43 +124,35 @@ class AUnetBackgroundRemoval:
         #     print(key, type(self.__history.history[key]), type(self.__history.history[key][0]), self.__history.history[key][0])
         with open(os.path.join(self.__checkpoints_folder, f'history_{self.__unique_name}.json'), 'w') as f:
             json.dump({key: list(map(lambda x: float(x), value))
-                       for key, value in self.__history.history.items()}, f)
+                        for key, value in self.__history.history.items()}, f)
 
-    def predict(self, x):
-        if len(x.shape == 3):
-            return self.__model.predict(x.reshape((1, * x.shape)))
+    def train_from_dataset(self, train_ds, val_ds, steps_per_epoch, epochs=1000):
 
-    def save_best_tflite(self):
-        checkpoints = os.listdir(self.__checkpoints_folder)
-        if len(checkpoints) == 0:
-            raise Exception('You must train model before restoring weights')
-        checkpoints = list(map(lambda x: (x, int(x[8:].split(
-            '-')[0])) if x.startswith('weights') else (x, -1), checkpoints))
-        checkpoints = sorted(checkpoints, key=lambda x: x[1])
-        name = checkpoints[-1][0]
+        self.__checkpoints_path = os.path.join(
+            self.__checkpoints_folder, '') + "weights.{epoch:04d}-{val_loss:.2f}.hdf5"
 
-        self.__model.load_weights(os.path.join(
-            self.__checkpoints_folder, name))
-        optimizations = [
-            (tf.lite.Optimize.DEFAULT, tf.float32, "default_32fp"),
-            (tf.lite.Optimize.DEFAULT, tf.float16, "default_16fp"),
-            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float32, "latency_32fp"),
-            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float16, "latency_16fp")
-        ]
+        callback_checkpoint = ModelCheckpoint(
+            filepath=self.__checkpoints_path,
+            verbose=self.__verbose,
+            monitor='val_loss',
+            save_best_only=True,
+        )
 
-        path = os.path.join(self.__checkpoints_folder, "tflite")
-        if not os.path.exists(path):
-            os.mkdir(path)
+        gccp = GcCollectCallback()
 
-        for optimization, tensor_type, name in optimizations:
-            converter = tf.lite.TFLiteConverter.from_keras_model(self.__model)
-            converter.post_training_quantize = True
-            converter.optimizations = [optimization]
-            converter.target_spec.supported_types = [tensor_type]
-            tflite_model = converter.convert()
+        self.__history = self.__model.fit(
+            train_ds,
+            steps_per_epoch=steps_per_epoch,
+            epochs=epochs,
+            validation_data= val_ds,
+            callbacks=[callback_checkpoint, gccp]
+        )
 
-            with open(os.path.join(path, "{}_{}.tflite".format(self.__unique_name, name)), "wb") as f:
-                f.write(tflite_model)
+        # for key in self.__history.history.keys():
+        #     print(key, type(self.__history.history[key]), type(self.__history.history[key][0]), self.__history.history[key][0])
+        with open(os.path.join(self.__checkpoints_folder, f'history_{self.__unique_name}.json'), 'w') as f:
+            json.dump({key: list(map(lambda x: float(x), value))
+                        for key, value in self.__history.history.items()}, f)
 
 
 if __name__ == "__main__":
@@ -245,6 +170,8 @@ if __name__ == "__main__":
                         action='store_true', required=False, dest='use_coco_portraits')
     # TODO
     # parser.add_argument('-us', '--use-supervisely-person-path', action='store_true', required=False, dest='use_supervisely_person')
+    parser.add_argument('-r', '--tfrecords-path', type=str,
+                        required=False, dest='tfrecords_path', default=None)
     parser.add_argument('-e', '--epochs', type=int,
                         required=False, dest='epochs', default=1000)
     parser.add_argument('-b', '--batch-size', type=int,
@@ -253,6 +180,8 @@ if __name__ == "__main__":
                         required=False, dest='filters', default=8)
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32)
+    parser.add_argument('-ch', '--cache', action='store_true',
+                        required=False, dest='cache', default=False)
     parser.add_argument('-v', '--verbose', type=int,
                         required=False, dest='verbose', default=0)
     parser.add_argument('--remove-all-previous-results', action='store_true',
@@ -287,7 +216,19 @@ if __name__ == "__main__":
         filters=args.filters,
         verbose=args.verbose)
 
-    if args.use_pascal_voc or args.use_coco_portraits:  # TODO add or args.use_supervisely_person
+    if args.tfrecords_path:
+        tfrecord_path = args.tfrecords_path
+
+        ds_train, ds_val = data_preparation.read_augment_tfrecord_dataset(data_preparation.AUGMENTATIONS,
+                                                                          ds_home=tfrecord_path,
+                                                                          shape=input_shape,
+                                                                          cache=args.cache,
+                                                                          batch_size=args.batch_size,
+                                                                          verbose=args.verbose)
+
+        aunet.train_from_dataset(ds_train, ds_val, steps_per_epoch=140, epochs=args.epochs)
+
+    elif args.use_pascal_voc or args.use_coco_portraits:  # TODO add or args.use_supervisely_person
         # Dataset (train and val) preparation
         # prepare args:
         pascal_voc_home = '/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/'
@@ -303,13 +244,16 @@ if __name__ == "__main__":
         else:
             coco_home = None
 
-        x_train, y_train, x_val, y_val = prepare_dataset(
+        x_train, y_train, x_val, y_val = data_preparation.prepare_process_dataset_into_memory(
             pascal_voc_home=pascal_voc_home, coco_home=coco_home, shape=input_shape, verbose=args.verbose)
         gc.collect()
 
         # train model
-        aunet.train(x_train, y_train, x_val, y_val,
+        aunet.train_from_memory(x_train, y_train, x_val, y_val,
                     epochs=args.epochs, batch_size=args.batch_size)
+    elif args.tflite:
+        aunet.save_tflite(best=True)
+    else:
+        raise Exception('You must specify dataset to start training')
 
-    if args.tflite:
-        aunet.save_best_tflite()
+    
