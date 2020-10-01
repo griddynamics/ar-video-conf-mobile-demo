@@ -4,9 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.*
 import android.util.Log
 import androidx.core.graphics.scale
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.griddynamics.video.conf.pref.DeviceInfo
 import com.griddynamics.video.conf.utils.ImageUtils
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
@@ -14,38 +11,37 @@ import java.nio.ByteOrder
 
 
 class ImageSegmentation(
-    private val interpreter: Interpreter
+    private val interpreter: Interpreter,
+    private val logger: Logger,
+    private val imageSize: Int
 ) {
-    private val db = Firebase.firestore
-
     private val segmentationMask: ByteBuffer =
-        ByteBuffer.allocateDirect(IMAGE_SIZE * IMAGE_SIZE * 4)
+        ByteBuffer.allocateDirect(imageSize * imageSize * 4)
 
     init {
         segmentationMask.order(ByteOrder.nativeOrder())
     }
 
     companion object {
-        private const val IMAGE_SIZE = 32
         private const val IMAGE_MEAN = 0.0f
         private const val IMAGE_STD = 255.0f
     }
 
     @SuppressLint("NewApi")
-    fun execute(bitmap: Bitmap): Bitmap {
+    fun execute(bitmap: Bitmap): Pair<Bitmap, Bitmap> {
         val startTotal = System.currentTimeMillis()
         val scaledBitmap =
             ImageUtils.scaleBitmapAndKeepRatio(
                 bitmap,
-                IMAGE_SIZE,
-                IMAGE_SIZE
+                imageSize,
+                imageSize
             )
 
         val normalized =
             ImageUtils.bitmapToByteBuffer(
                 scaledBitmap,
-                IMAGE_SIZE,
-                IMAGE_SIZE,
+                imageSize,
+                imageSize,
                 IMAGE_MEAN,
                 IMAGE_STD
             )
@@ -58,20 +54,8 @@ class ImageSegmentation(
             segmentationMask
         )
 
-        val logTotal = hashMapOf(
-            "uuid" to DeviceInfo.uuid,
-            "model" to DeviceInfo.model,
-            "tag" to "total processing",
-            "info" to System.currentTimeMillis() - startTotal
-        )
-        val logInference = hashMapOf(
-            "uuid" to DeviceInfo.uuid,
-            "model" to DeviceInfo.model,
-            "tag" to "inference",
-            "info" to inference
-        )
-        db.collection("logs").add(logInference)
-        db.collection("logs").add(logTotal)
+        logger.logInfo("inference", inference)
+        logger.logInfo("total processing", System.currentTimeMillis() - startTotal)
 
         return result
     }
@@ -79,15 +63,15 @@ class ImageSegmentation(
     private fun convertByteBufferMaskToBitmap(
         bitmapOrig: Bitmap,
         inputBuffer: ByteBuffer
-    ): Bitmap {
+    ): Pair<Bitmap, Bitmap> {
         val conf = Bitmap.Config.ARGB_8888
-        var maskBitmap = Bitmap.createBitmap(IMAGE_SIZE, IMAGE_SIZE, conf)
+        val maskBitmap = Bitmap.createBitmap(imageSize, imageSize, conf)
         inputBuffer.rewind()
         var start = System.currentTimeMillis()
 
-        for (y in 0 until IMAGE_SIZE) {
-            for (x in 0 until IMAGE_SIZE) {
-                val index = y * IMAGE_SIZE + x
+        for (y in 0 until imageSize) {
+            for (x in 0 until imageSize) {
+                val index = y * imageSize + x
                 val value = inputBuffer.getFloat(index * 4)
                 val segmentColor = Color.argb(
                     ((value) * 255).toInt(),
@@ -100,13 +84,13 @@ class ImageSegmentation(
             }
         }
         val origBitmap: Bitmap = bitmapOrig.scale(256, 256)
-        maskBitmap = maskBitmap.scale(256, 256)
+        val scaledBitmap = maskBitmap.scale(256, 256)
         Log.d("timelap scale", (System.currentTimeMillis() - start).toString())
 
         start = System.currentTimeMillis()
-        val result = overlay(maskBitmap, origBitmap)
+        val result = overlay(scaledBitmap, origBitmap)
         Log.d("timelap for overlay", (System.currentTimeMillis() - start).toString())
-        return result
+        return Pair(result, maskBitmap)
     }
 
     private fun overlay(bmp2: Bitmap, bmp3: Bitmap): Bitmap {

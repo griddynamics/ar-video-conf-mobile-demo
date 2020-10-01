@@ -8,18 +8,35 @@ import java.io.IOException
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 
-class ImageSegmentationFactory {
+class ImageSegmentationFactory(private val logger: Logger) {
 
-    companion object {
-        private const val maskModel = "semsegm_of8000_latency_16fp.tflite"
+    enum class MaskModel(val filename: String) {
+
+        mask32Model("semsegm_of8000_latency_16fp.tflite") {
+            override fun imageSize() = 32
+        },
+        mask64Model("fil_8_shape_64x64_latency_16fp.tflite") {
+            override fun imageSize() = 64
+        },
+        mask128Model("fil_8_shape_128x128_latency_16fp.tflite") {
+            override fun imageSize() = 128
+        };
+
+        companion object {
+            fun getByFilename(name: String) =
+                values().find { it.filename == name } ?: mask32Model
+        }
+
+        abstract fun imageSize(): Int
     }
 
     private lateinit var interpreter: Interpreter
 
-    fun provideCustom(context: Context): ImageSegmentation {
-        interpreter = getInterpreter(context, maskModel)
-        DeviceInfo.model = maskModel
-        return ImageSegmentation(interpreter)
+    fun provideCustom(context: Context, filename: String): ImageSegmentation {
+        val model = MaskModel.getByFilename(filename)
+        interpreter = getInterpreter(context, model.filename)
+        DeviceInfo.model = model.filename
+        return ImageSegmentation(interpreter, logger, model.imageSize())
     }
 
     fun destroy() {
