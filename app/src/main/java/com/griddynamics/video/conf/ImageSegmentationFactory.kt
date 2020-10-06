@@ -18,7 +18,13 @@ class ImageSegmentationFactory(private val logger: Logger) {
         mask64Model("fil_8_shape_64x64_latency_16fp.tflite") {
             override fun imageSize() = 64
         },
-        mask128Model("fil_8_shape_128x128_latency_16fp.tflite") {
+        mask128_8_Model("fil_8_shape_128x128_latency_16fp.tflite") {
+            override fun imageSize() = 128
+        },
+        mask128_12_Model("fil_12_shape_128x128_latency_16fp.tflite") {
+            override fun imageSize() = 128
+        },
+        mask128_16_Model("fil_16_shape_128x128_latency_16fp.tflite") {
             override fun imageSize() = 128
         };
 
