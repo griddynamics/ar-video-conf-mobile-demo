@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "843174770491",
+    "firebase_url": "https://cto-rnd-ar-video-conf.firebaseio.com",
+    "project_id": "cto-rnd-ar-video-conf",
+    "storage_bucket": "cto-rnd-ar-video-conf.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843174770491:android:a2ec9d503034eb63b3e91e",
+        "android_client_info": {
+          "package_name": "com.griddynamics.video.conf"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "843174770491-fduvt53m7jagudsvqk5pih6fabqc6o2h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.griddynamics.video.conf",
+            "certificate_hash": "a85313d1439e464bed1c9dda57e1574d88097560"
+          }
+        },
+        {
+          "client_id": "843174770491-tib3u14g0nc93sv9enthcgs1pejtc2mm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANZRNLuVFguLMqh5-jo1COYAlc7xz6Rj8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "843174770491-tib3u14g0nc93sv9enthcgs1pejtc2mm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
