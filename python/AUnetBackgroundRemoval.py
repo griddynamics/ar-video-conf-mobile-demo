@@ -251,6 +251,9 @@ if __name__ == "__main__":
         # train model
         aunet.train_from_memory(x_train, y_train, x_val, y_val,
                     epochs=args.epochs, batch_size=args.batch_size)
+
+        if args.tflite:
+            aunet.save_tflite(best=True)
     elif args.tflite:
         aunet.save_tflite(best=True)
     else:
