@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.*
 import android.util.Log
 import androidx.core.graphics.scale
+import com.griddynamics.video.conf.pref.Settings
 import com.griddynamics.video.conf.utils.ImageUtils
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
@@ -69,6 +70,41 @@ class ImageSegmentation(
         inputBuffer.rewind()
         var start = System.currentTimeMillis()
 
+        if (Settings.modelRound > 0) {
+            onModeEnabled(maskBitmap, inputBuffer)
+        } else {
+            onModeDisabled(maskBitmap, inputBuffer)
+        }
+
+        val origBitmap: Bitmap = bitmapOrig.scale(Settings.modelScale, Settings.modelScale)
+        val scaledBitmap = maskBitmap.scale(Settings.modelScale, Settings.modelScale)
+        Log.d("timelap scale", (System.currentTimeMillis() - start).toString())
+
+        start = System.currentTimeMillis()
+        val result = overlay(scaledBitmap, origBitmap)
+        Log.d("timelap for overlay", (System.currentTimeMillis() - start).toString())
+        return Pair(result, maskBitmap)
+    }
+
+    private fun onModeEnabled(maskBitmap: Bitmap, inputBuffer: ByteBuffer) {
+        for (y in 0 until imageSize) {
+            for (x in 0 until imageSize) {
+                val index = y * imageSize + x
+                val ibValue = inputBuffer.getFloat(index * 4)
+                val value = if (ibValue < Settings.modelRound) 0f else ibValue
+                val segmentColor = Color.argb(
+                    ((value) * 255).toInt(),
+                    0,
+                    0,
+                    0
+                )
+
+                maskBitmap.setPixel(x, y, segmentColor)
+            }
+        }
+    }
+
+    private fun onModeDisabled(maskBitmap: Bitmap, inputBuffer: ByteBuffer) {
         for (y in 0 until imageSize) {
             for (x in 0 until imageSize) {
                 val index = y * imageSize + x
@@ -83,14 +119,6 @@ class ImageSegmentation(
                 maskBitmap.setPixel(x, y, segmentColor)
             }
         }
-        val origBitmap: Bitmap = bitmapOrig.scale(256, 256)
-        val scaledBitmap = maskBitmap.scale(256, 256)
-        Log.d("timelap scale", (System.currentTimeMillis() - start).toString())
-
-        start = System.currentTimeMillis()
-        val result = overlay(scaledBitmap, origBitmap)
-        Log.d("timelap for overlay", (System.currentTimeMillis() - start).toString())
-        return Pair(result, maskBitmap)
     }
 
     private fun overlay(bmp2: Bitmap, bmp3: Bitmap): Bitmap {
