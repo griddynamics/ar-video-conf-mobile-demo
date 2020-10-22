@@ -82,8 +82,8 @@ class SettingsBottomDialogFragment(
 
     private fun handleRoundTitle(tv: TextView) {
         tv.text = when (Settings.modelRound) {
-            0f -> "Round model value: not in use"
-            else -> "Round model value: ${Settings.modelRound}"
+            0f -> "Threshold: not in use"
+            else -> "Threshold: ${Settings.modelRound}"
         }
     }
 
