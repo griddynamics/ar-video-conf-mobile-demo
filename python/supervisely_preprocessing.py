@@ -7,12 +7,13 @@ import argparse
 import zlib
 import cv2
 import numpy as np
+import tensorflow as tf
 from PIL import Image
 from mtcnn import MTCNN
 
 
 DS_FMTS = ('{dsf}/img/', '{dsf}/ann/')
-FACE_DET = MTCNN()
+#FACE_DET = MTCNN()
 EPS = 1/32
 ASPECT_RATIO = 16/9
 
@@ -224,10 +225,24 @@ def main():
                         required=True, dest='destination')
     args = parser.parse_args()
 
+    # preparing environment
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    # From [TensorFlow guide][1]https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            first_gpu = gpus[0]
+            tf.config.experimental.set_virtual_device_configuration(first_gpu,
+                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=7000)])
+        except RuntimeError as e:
+            print(e)
     DATASET_HOME = '/Users/aholdobin/projects/data/Supervisely Person Dataset/'
     if args.source_path:
         DATASET_HOME = args.source_path
     
+    global FACE_DET
+    FACE_DET = MTCNN()
 
     ds_folders = get_ds_folders(DATASET_HOME)
     files = get_files(DATASET_HOME)
