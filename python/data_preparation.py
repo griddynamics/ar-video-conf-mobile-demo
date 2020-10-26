@@ -13,6 +13,10 @@ from pprint import pprint
 
 
 ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
+
+SUPERVISELY = 'Supervise.ly'
+COCO = 'COCO'
+
 PASCAL_VOC_PERSON_CLASS_ID = 15
 AUGMENTATIONS = dict(
     rotation_range=15.,
@@ -34,6 +38,9 @@ def prepare_process_dataset_into_memory(pascal_voc_home='/home/aholdobin/pascalv
                     coco_home='/home/aholdobin/faces/',
                     shape=(32, 32),
                     verbose=False):
+    # IMPORTANT NOTE: this method implementats creation of the second dataset version (only COCO and
+    # PASCAL VOC datasets are used and from PASCAL VOC dataset selected files where person (people)
+    # part is 0 or > .15)
     gc.collect()
 
     Xs = []
@@ -144,11 +151,12 @@ def serialize_segmentation_example(x, y):
     return example.SerializeToString()
 
 
-def preprocess_store_coco(ds_train, ds_val,
+def preprocess_store_coco_like(ds_train, ds_val,
                           dataset_home='/home/aholdobin/faces/',
-                          tfrecords_dest='/home/aholdobin/tfrecords/',
+                          tfrecords_dest='/home/aholdobin/tfrecords_v3/',
                           shape=(32, 32),
-                          verbose=False):
+                          verbose=False,
+                          dataset=COCO):
 
     def store_chunk(record_name, files, filenames):
         if len(files) == 0:
@@ -173,11 +181,15 @@ def preprocess_store_coco(ds_train, ds_val,
     if dataset_home and os.path.exists(dataset_home):
 
         if verbose:
-            print('Processinng and storing COCO Portrait dataset')
+            ds_dict = {COCO: 'COCO Portrait dataset', SUPERVISELY: 'Supervise.ly Person'}
+            print('Processinng and storing {} dataset'.format(ds_dict['dataset']))
         
         files = os.listdir(dataset_home+'images/')
 
-        filename_pattern = "cocoportrait_{}x{}_{}_{}.tfrecord"
+        filename_pattern = {
+            COCO: "cocoportrait_{}x{}_{}_{}.tfrecord",
+            SUPERVISELY: "supervisely_{}x{}_{}_{}.tfrecord"
+        }[dataset]
         if verbose:
             print('files len', len(files))
         files = list(
@@ -202,9 +214,13 @@ def preprocess_store_coco(ds_train, ds_val,
 
 def preprocess_store_pascal(ds_train, ds_val,
                             dataset_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
-                            tfrecords_dest='/home/aholdobin/tfrecords/',
+                            tfrecords_dest='/home/aholdobin/tfrecords_v3/',
                             shape=(32, 32),
                             verbose=False):
+
+    # IMPORTANT NOTE: this method implementats creation of the third dataset version (COCO and
+    # PASCAL VOC as well as Supervise.ly datasets are used; and from PASCAL VOC dataset selected
+    # files where person (people) part is 0 or > .5 in order to reduse numbber of small artifacts)
 
     def store_chunk(record_name, files, filenames, images_folder, segmentation_folder):
         if len(files) == 0:
@@ -215,7 +231,7 @@ def preprocess_store_pascal(ds_train, ds_val,
                     y = cv2.resize((np.array(Image.open(
                         segmentation_folder + file + '.png')) == PASCAL_VOC_PERSON_CLASS_ID).astype('float32'), dsize=shape)
                     tmean = y.mean()
-                    if 0 < tmean <= .15:
+                    if 0 < tmean <= .5:
                         continue
                     x = np.array(Image.open(images_folder + file +
                                             '.jpg').resize(shape), dtype='float32')/255.
@@ -268,10 +284,12 @@ def preprocess_store_pascal(ds_train, ds_val,
 
 def prepare_and_store_tfrecord_dataset(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
                               coco_home='/home/aholdobin/faces/',
-                              tfrecords_dest='/home/aholdobin/tfrecords/',
+                              supervisely_home='/home/aholdobin/Supervisely Person Dataset/',
+                              tfrecords_dest='/home/aholdobin/tfrecords_v3/',
                               shape=(32, 32),
                               verbose=False):
 
+    # IMPORTANT NOTE: 
     if not os.path.exists(tfrecords_dest):
         os.mkdir(tfrecords_dest)
 
@@ -279,8 +297,13 @@ def prepare_and_store_tfrecord_dataset(pascal_voc_home='/home/aholdobin/pascalvo
     ds_val = []
 
     if coco_home and os.path.exists(coco_home):
-        preprocess_store_coco(ds_train, ds_val, dataset_home=coco_home,
+        preprocess_store_coco_like(ds_train, ds_val, dataset_home=coco_home,
                               tfrecords_dest=tfrecords_dest, shape=shape, verbose=verbose)
+    
+    if supervisely_home and os.path.exists(supervisely_home):
+        preprocess_store_coco_like(ds_train, ds_val, dataset_home=supervisely_home,
+                              tfrecords_dest=tfrecords_dest, shape=shape, verbose=verbose, dataset=SUPERVISELY)
+
     if pascal_voc_home and os.path.exists(pascal_voc_home):
         preprocess_store_pascal(ds_train, ds_val, dataset_home=pascal_voc_home,
                                 tfrecords_dest=tfrecords_dest, shape=shape, verbose=verbose)
@@ -301,7 +324,7 @@ def read_tfrecord(serialized_example):
     return x, y
 
 def read_augment_tfrecord_dataset(augmentations,
-                                  ds_home='/home/aholdobin/tfrecords/',
+                                  ds_home='/home/aholdobin/tfrecords_v3/',
                                   shape=(32, 32),
                                   batch_size=32,
                                   cache=True,
@@ -362,7 +385,7 @@ def read_augment_tfrecord_dataset(augmentations,
         augment=augment_tf
     )
     val_ds = read_prepare_tfrecordsdataset(tf.data.TFRecordDataset(
-        train_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
+        val_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
     return train_ds, val_ds
 
 
@@ -373,16 +396,16 @@ if __name__ == "__main__":
                         required=False, dest='pascal_voc_path')
     parser.add_argument('-c', '--coco-portraints-path',
                         required=False, dest='coco_portraits_path')
-    # TODO
-    # parser.add_argument('-s', '--supervisely-person-path', required=False, dest='supervisely_person_path')
+    parser.add_argument('-s', '--supervisely-person-path', 
+                        required=False, dest='supervisely_person_path')
     parser.add_argument('-d', '--tfrecord-destination',
                         required=False, dest='tfrecord_destination')
     parser.add_argument('-up', '--use_pascal-voc-path',
                         action='store_true', required=False, dest='use_pascal_voc')
     parser.add_argument('-uc', '--use-coco-portraints-path',
                         action='store_true', required=False, dest='use_coco_portraits')
-    # TODO
-    # parser.add_argument('-us', '--use-supervisely-person-path', action='store_true', required=False, dest='use_supervisely_person')
+    parser.add_argument('-us', '--use-supervisely-person-path', 
+                        action='store_true', required=False, dest='use_supervisely_person')
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32)
     parser.add_argument('-v', '--verbose', type=int,
@@ -397,13 +420,13 @@ if __name__ == "__main__":
     if args.tfrecord_destination:
         tfrecord_destination = args.tfrecord_destination
     else:
-        tfrecord_destination = '/home/aholdobin/tfrecords/'
+        tfrecord_destination = '/home/aholdobin/tfrecords_v3/'
 
     if args.remove_all and os.path.exists(tfrecord_destination):
         import shutil
         shutil.rmtree(tfrecord_destination)
 
-    if args.use_pascal_voc or args.use_coco_portraits:  # TODO add or args.use_supervisely_person
+    if args.use_pascal_voc or args.use_coco_portraits or args.use_supervisely_person:
         # Dataset (train and val) preparation
         # prepare args:
         pascal_voc_home = '/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/'
@@ -418,9 +441,15 @@ if __name__ == "__main__":
                 coco_home = args.coco_portraits_path
         else:
             coco_home = None
+        suprevisely_home = '/home/aholdobin/Supervisely Person Dataset/'
+        if args.use_supervisely_person:
+            if args.supervisely_person_path:
+                suprevisely_home = args.supervisely_person_path
+        else:
+            coco_home = None
 
         tfrecord_destination,  ds_train, ds_val = prepare_and_store_tfrecord_dataset(
-            pascal_voc_home=pascal_voc_home, coco_home=coco_home, tfrecords_dest=tfrecord_destination, shape=input_shape, verbose=args.verbose)
+            pascal_voc_home=pascal_voc_home, coco_home=coco_home, supervisely_home=suprevisely_home, tfrecords_dest=tfrecord_destination, shape=input_shape, verbose=args.verbose)
         if args.verbose:
             pprint(ds_train)
             pprint(ds_val)
