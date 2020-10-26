@@ -182,7 +182,7 @@ def preprocess_store_coco_like(ds_train, ds_val,
 
         if verbose:
             ds_dict = {COCO: 'COCO Portrait dataset', SUPERVISELY: 'Supervise.ly Person'}
-            print('Processinng and storing {} dataset'.format(ds_dict['dataset']))
+            print('Processinng and storing {} dataset'.format(ds_dict[dataset]))
         
         files = os.listdir(dataset_home+'images/')
 
