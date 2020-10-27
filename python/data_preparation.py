@@ -289,7 +289,7 @@ def prepare_and_store_tfrecord_dataset(pascal_voc_home='/home/aholdobin/pascalvo
                               shape=(32, 32),
                               verbose=False):
 
-    # IMPORTANT NOTE: 
+    # IMPORTANT NOTE: Dataset v3 (check comments undser preprocess_store_pascal)
     if not os.path.exists(tfrecords_dest):
         os.mkdir(tfrecords_dest)
 
@@ -307,6 +307,7 @@ def prepare_and_store_tfrecord_dataset(pascal_voc_home='/home/aholdobin/pascalvo
     if pascal_voc_home and os.path.exists(pascal_voc_home):
         preprocess_store_pascal(ds_train, ds_val, dataset_home=pascal_voc_home,
                                 tfrecords_dest=tfrecords_dest, shape=shape, verbose=verbose)
+
 
     if len(ds_train) == 0:
         raise ValueError('Need at least 1 source of data')
@@ -446,8 +447,8 @@ if __name__ == "__main__":
             if args.supervisely_person_path:
                 suprevisely_home = args.supervisely_person_path
         else:
-            coco_home = None
-
+            suprevisely_home = None
+        
         tfrecord_destination,  ds_train, ds_val = prepare_and_store_tfrecord_dataset(
             pascal_voc_home=pascal_voc_home, coco_home=coco_home, supervisely_home=suprevisely_home, tfrecords_dest=tfrecord_destination, shape=input_shape, verbose=args.verbose)
         if args.verbose:
