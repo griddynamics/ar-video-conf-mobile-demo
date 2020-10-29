@@ -32,6 +32,7 @@ class AUnetBackgroundRemoval:
         self.__unique_name = f"fil_{filters}_shape_{self.__input_shape[0]}x{self.__input_shape[1]}"
         self.__checkpoints_folder = os.path.join(
             checkpoints_folder, self.__unique_name)
+        self.__initial_epoch = 0
         if self.__verbose:
             print(self.__checkpoints_folder)
         self.__model = custom_unet(
@@ -65,17 +66,23 @@ class AUnetBackgroundRemoval:
         if len(x.shape == 3):
             return self.__model.predict(x.reshape((1, * x.shape)))
 
+    def load_last_checkpoint(self, warning=False):
+        checkpoints = os.listdir(self.__checkpoints_folder)
+        checkpoints = [ (x, int(x[8:].split('-')[0])) for x in checkpoints if x.startswith('weights') ]
+        if len(checkpoints) == 0:
+            if warning:
+                print('You must train model before restoring weights!')
+                return
+            raise Exception('You must train model before restoring weights')
+        checkpoints = sorted(checkpoints, key=lambda x: x[1])
+        name = checkpoints[-1][0]
+        self.__initial_epoch = checkpoints[-1][1]
+        self.__model.load_weights(os.path.join(
+            self.__checkpoints_folder, name))
+
     def save_tflite(self, best=False):
         if best:
-            checkpoints = os.listdir(self.__checkpoints_folder)
-            if len(checkpoints) == 0:
-                raise Exception('You must train model before restoring weights')
-            checkpoints = list(map(lambda x: (x, int(x[8:].split(
-                '-')[0])) if x.startswith('weights') else (x, -1), checkpoints))
-            checkpoints = sorted(checkpoints, key=lambda x: x[1])
-            name = checkpoints[-1][0]
-            self.__model.load_weights(os.path.join(
-                self.__checkpoints_folder, name))
+            self.load_last_checkpoint()
         optimizations = [
             (tf.lite.Optimize.DEFAULT, tf.float32, "default_32fp"),
             (tf.lite.Optimize.DEFAULT, tf.float16, "default_16fp"),
@@ -116,6 +123,7 @@ class AUnetBackgroundRemoval:
             train_gen,
             steps_per_epoch=(len(x_train)+batch_size-1)//batch_size,
             epochs=epochs,
+            initial_epoch=self.__initial_epoch,
             validation_data=(x_val, y_val),
             callbacks=[callback_checkpoint]
         )
@@ -180,6 +188,8 @@ if __name__ == "__main__":
                         required=False, dest='filters', default=8)
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32)
+    parser.add_argument('-e', '--number-of-examples', type=int,
+                        required=False, dest='number_of_examples', default=27781)
     parser.add_argument('-ch', '--cache', action='store_true',
                         required=False, dest='cache', default=False)
     parser.add_argument('-v', '--verbose', type=int,
@@ -188,6 +198,8 @@ if __name__ == "__main__":
                         required=False, dest='remove_all')
     parser.add_argument('-l', '--generate-tflite', action='store_true',
                         required=False, dest='tflite')
+    parser.add_argument('--restore', action='store_true',
+                        required=False, dest='restore')
 
     args = parser.parse_args()
 
@@ -215,10 +227,13 @@ if __name__ == "__main__":
         input_shape=input_shape,
         filters=args.filters,
         verbose=args.verbose)
+    
+    if args.restore:
+        aunet.load_last_checkpoint(warning=True)
 
     if args.tfrecords_path:
         tfrecord_path = args.tfrecords_path
-
+        steps_per_epoch = (args.number_of_examples + args.batch_size - 1) // args.batch_size
         ds_train, ds_val = data_preparation.read_augment_tfrecord_dataset(data_preparation.AUGMENTATIONS,
                                                                           ds_home=tfrecord_path,
                                                                           shape=input_shape,
@@ -226,7 +241,7 @@ if __name__ == "__main__":
                                                                           batch_size=args.batch_size,
                                                                           verbose=args.verbose)
 
-        aunet.train_from_dataset(ds_train, ds_val, steps_per_epoch=140, epochs=args.epochs)
+        aunet.train_from_dataset(ds_train, ds_val, steps_per_epoch=steps_per_epoch, epochs=args.epochs)
 
     elif args.use_pascal_voc or args.use_coco_portraits:  # TODO add or args.use_supervisely_person
         # Dataset (train and val) preparation
@@ -251,12 +266,8 @@ if __name__ == "__main__":
         # train model
         aunet.train_from_memory(x_train, y_train, x_val, y_val,
                     epochs=args.epochs, batch_size=args.batch_size)
-
-        if args.tflite:
-            aunet.save_tflite(best=True)
-    elif args.tflite:
+    if args.tflite:
         aunet.save_tflite(best=True)
-    else:
-        raise Exception('You must specify dataset to start training')
+
 
     
