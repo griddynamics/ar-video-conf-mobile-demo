@@ -1,78 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp"
-    tools:context=".SettingsBottomDialogFragment">
+    android:layout_height="match_parent">
 
-    <CheckBox
-        android:id="@+id/cbSendStatistic"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:checked="false"
-        android:text="Send Statistic"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageButton
-        android:id="@+id/btnUndo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/ic_baseline_undo_24"
-        app:layout_constraintBottom_toBottomOf="@+id/cbSendStatistic"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/cbSendStatistic" />
-
-    <TextView
-        android:id="@+id/tvRound"
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="Round model value: "
-        app:layout_constraintTop_toBottomOf="@+id/cbSendStatistic" />
+        android:layout_height="match_parent"
+        android:padding="16dp"
+        tools:context=".SettingsBottomDialogFragment">
 
-    <SeekBar
-        android:id="@+id/sbRound"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:max="10000"
-        app:layout_constraintTop_toBottomOf="@+id/tvRound" />
+        <CheckBox
+            android:id="@+id/cbSendStatistic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:text="Send Statistic"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/tvScale"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="Model scaling: "
-        app:layout_constraintTop_toBottomOf="@+id/sbRound" />
+        <ImageButton
+            android:id="@+id/btnUndo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_baseline_undo_24"
+            app:layout_constraintBottom_toBottomOf="@+id/cbSendStatistic"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/cbSendStatistic" />
 
-    <SeekBar
-        android:id="@+id/sbScale"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:max="1024"
-        android:min="16"
-        app:layout_constraintTop_toBottomOf="@+id/tvScale" />
+        <TextView
+            android:id="@+id/tvRound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="Round model value: "
+            app:layout_constraintTop_toBottomOf="@+id/cbSendStatistic" />
 
-    <TextView
-        android:id="@+id/tvModel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Model"
-        app:layout_constraintTop_toBottomOf="@+id/sbScale" />
+        <SeekBar
+            android:id="@+id/sbRound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="10000"
+            app:layout_constraintTop_toBottomOf="@+id/tvRound" />
 
-    <Spinner
-        android:id="@+id/spinner"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvModel" />
+        <TextView
+            android:id="@+id/tvScale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="Model scaling: "
+            app:layout_constraintTop_toBottomOf="@+id/sbRound" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <SeekBar
+            android:id="@+id/sbScale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="1024"
+            android:min="16"
+            app:layout_constraintTop_toBottomOf="@+id/tvScale" />
+
+        <TextView
+            android:id="@+id/tvModel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Model"
+            app:layout_constraintTop_toBottomOf="@+id/sbScale" />
+
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tvModel" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tvModel" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>

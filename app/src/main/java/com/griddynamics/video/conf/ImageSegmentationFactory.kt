@@ -2,11 +2,12 @@ package com.griddynamics.video.conf
 
 import android.content.Context
 import com.griddynamics.video.conf.pref.DeviceInfo
+import com.griddynamics.video.conf.pref.Settings
 import org.tensorflow.lite.Interpreter
-import java.io.FileInputStream
-import java.io.IOException
+import java.io.*
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
+import java.nio.file.Paths
 
 class ImageSegmentationFactory(private val logger: Logger) {
 
@@ -38,11 +39,9 @@ class ImageSegmentationFactory(private val logger: Logger) {
 
     private lateinit var interpreter: Interpreter
 
-    fun provideCustom(context: Context, filename: String): ImageSegmentation {
-        val model = MaskModel.getByFilename(filename)
-        interpreter = getInterpreter(context, model.filename)
-        DeviceInfo.model = model.filename
-        return ImageSegmentation(interpreter, logger, model.imageSize())
+    fun provideCustom(context: Context): ImageSegmentation {
+        interpreter = getInterpreter(context, Settings.modelName)
+        return ImageSegmentation(interpreter, logger, Settings.modelSize)
     }
 
     fun destroy() {
@@ -60,13 +59,49 @@ class ImageSegmentationFactory(private val logger: Logger) {
 
     @Throws(IOException::class)
     private fun loadModelFile(context: Context, modelFile: String): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd(modelFile)
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        val retFile = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-        fileDescriptor.close()
-        return retFile
+
+  //      if (modelFile.contains(SettingsBottomDialogFragment.modelPrefix)) {
+  //          val path = Paths.get(context.filesDir.absolutePath, modelFile)
+  //          val file = RandomAccessFile(File(path.toUri()), "rw")
+  //          val ch = file.channel
+  //          val size = ch.size()
+  //          val retFile = ch.map(FileChannel.MapMode.READ_ONLY, 0, size)
+  //          ch.close()
+  //          return retFile
+  //      } else {
+  //          val model = MaskModel.getByFilename(modelFile)
+  //          model?.let {
+  //              val fileDescriptor = context.assets.openFd(it.filename)
+  //              val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+  //              val fileChannel = inputStream.channel
+  //              val startOffset = fileDescriptor.startOffset
+  //              val declaredLength = fileDescriptor.declaredLength
+  //              val retFile =
+  //                  fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+  //              fileDescriptor.close()
+  //              return retFile
+  //          }
+  //          throw NotImplementedError()
+  //      }
+  //
+        try {
+            val fileDescriptor = context.assets.openFd(modelFile)
+            val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+            val fileChannel = inputStream.channel
+            val startOffset = fileDescriptor.startOffset
+            val declaredLength = fileDescriptor.declaredLength
+            val retFile = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+            fileDescriptor.close()
+            return retFile
+        }
+        catch (ex: FileNotFoundException){
+            val path = Paths.get(context.filesDir.absolutePath, modelFile)
+            val file = RandomAccessFile(File(path.toUri()), "rw")
+            val ch = file.channel
+            val size = ch.size()
+            val retFile = ch.map(FileChannel.MapMode.READ_ONLY, 0, size)
+            ch.close()
+            return retFile
+        }
     }
 }

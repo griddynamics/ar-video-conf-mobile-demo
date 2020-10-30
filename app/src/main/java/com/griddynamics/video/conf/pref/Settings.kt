@@ -8,4 +8,5 @@ object Settings : KotprefModel() {
     var modelRound by floatPref(default = 0f)
     var modelScale by intPref(default = 256)
     var modelName by stringPref(default = ImageSegmentationFactory.MaskModel.mask32Model.toString())
+    var modelSize by intPref(default = ImageSegmentationFactory.MaskModel.mask32Model.imageSize())
 }

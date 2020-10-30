@@ -2,6 +2,7 @@ package com.griddynamics.video.conf
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.griddynamics.video.conf.pref.DeviceInfo
+import com.griddynamics.video.conf.pref.Settings
 
 class Logger(private val db: FirebaseFirestore) {
     var logsEnabled = false
@@ -16,7 +17,7 @@ class Logger(private val db: FirebaseFirestore) {
                 hashMapOf(
                     "uuid" to DeviceInfo.uuid,
                     "timestamp" to System.currentTimeMillis(),
-                    "model" to DeviceInfo.model,
+                    "model" to Settings.modelName,
                     "tag" to tag,
                     "info" to info
                 )

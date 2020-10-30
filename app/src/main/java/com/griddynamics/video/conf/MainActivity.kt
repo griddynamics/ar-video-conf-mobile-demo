@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
     private fun setInterpreter() {
         coroutineScope.launch {
             maskImageSegmentation =
-                imageSegmentationFactory.provideCustom(applicationContext, Settings.modelName)
+                imageSegmentationFactory.provideCustom(applicationContext)
         }
     }
 
