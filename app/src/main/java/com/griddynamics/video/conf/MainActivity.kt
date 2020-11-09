@@ -182,7 +182,18 @@ class MainActivity : AppCompatActivity() {
                         result.first
                     )
                     timestamp?.let { t ->
-                        logger.logInfo("fps", System.currentTimeMillis() - t)
+                        val diff = System.currentTimeMillis() - t
+                        val fps = if (diff != 0L) {
+                            1000 / diff
+                        } else 0
+                        logger.logInfo("fps", fps)
+                        tvInfo.visibility = if (Settings.showStatic) {
+                            tvInfo.text = "$fps fps"
+                            View.VISIBLE
+                        }
+                        else {
+                            View.GONE
+                        }
                     }
                     timestamp = System.currentTimeMillis()
                 }

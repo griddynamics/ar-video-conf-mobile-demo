@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "843174770491",
-    "firebase_url": "https://cto-rnd-ar-video-conf.firebaseio.com",
-    "project_id": "cto-rnd-ar-video-conf",
-    "storage_bucket": "cto-rnd-ar-video-conf.appspot.com"
+    "project_number": "1008313729441",
+    "firebase_url": "https://cto-rnd-ar-video-conf-ebf73.firebaseio.com",
+    "project_id": "cto-rnd-ar-video-conf-ebf73",
+    "storage_bucket": "cto-rnd-ar-video-conf-ebf73.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:843174770491:android:a2ec9d503034eb63b3e91e",
+        "mobilesdk_app_id": "1:1008313729441:android:afece92aa19e8565f70be0",
         "android_client_info": {
           "package_name": "com.griddynamics.video.conf"
         }
       },
       "oauth_client": [
         {
-          "client_id": "843174770491-fduvt53m7jagudsvqk5pih6fabqc6o2h.apps.googleusercontent.com",
+          "client_id": "1008313729441-77244pglpen6f0e7cadomo3727p9cnan.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.griddynamics.video.conf",
@@ -23,20 +23,20 @@
           }
         },
         {
-          "client_id": "843174770491-tib3u14g0nc93sv9enthcgs1pejtc2mm.apps.googleusercontent.com",
+          "client_id": "1008313729441-bipt1dhjlc9ugt72da6uk7p9ob1po6le.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyANZRNLuVFguLMqh5-jo1COYAlc7xz6Rj8"
+          "current_key": "AIzaSyCXsMjxphy-WCtsywm6gto-EkxOLMvcboE"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "843174770491-tib3u14g0nc93sv9enthcgs1pejtc2mm.apps.googleusercontent.com",
+              "client_id": "1008313729441-bipt1dhjlc9ugt72da6uk7p9ob1po6le.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

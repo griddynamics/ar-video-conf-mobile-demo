@@ -12,22 +12,31 @@
         tools:context=".SettingsBottomDialogFragment">
 
         <CheckBox
+            android:id="@+id/cbShowStatistic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:text="Show Statistic"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <CheckBox
             android:id="@+id/cbSendStatistic"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="false"
             android:text="Send Statistic"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toBottomOf="@+id/cbShowStatistic" />
 
         <ImageButton
             android:id="@+id/btnUndo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_baseline_undo_24"
-            app:layout_constraintBottom_toBottomOf="@+id/cbSendStatistic"
+            app:layout_constraintBottom_toBottomOf="@+id/cbShowStatistic"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/cbSendStatistic" />
+            app:layout_constraintTop_toTopOf="@+id/cbShowStatistic" />
 
         <TextView
             android:id="@+id/tvRound"

@@ -41,6 +41,11 @@ class SettingsBottomDialogFragment(
             R.layout.fragment_settings_bottom_dialog, container,
             false
         ).apply {
+            cbShowStatistic.isChecked = Settings.showStatic
+            cbShowStatistic.setOnCheckedChangeListener { _, isChecked ->
+                Settings.showStatic = isChecked
+            }
+
             cbSendStatistic.isChecked = Settings.sendStatic
             cbSendStatistic.setOnCheckedChangeListener { _, isChecked ->
                 Settings.sendStatic = isChecked
