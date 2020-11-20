@@ -324,6 +324,11 @@ def read_tfrecord(serialized_example):
 
     return x, y
 
+def set_shape(x, y, shape):
+    x.set_shape((shape[0], shape[1], 3))
+    y.set_shape((shape[0], shape[1], 1))
+    return x, y
+
 def read_augment_tfrecord_dataset(augmentations,
                                   ds_home='/home/aholdobin/tfrecords_v3/',
                                   shape=(32, 32),
@@ -331,11 +336,7 @@ def read_augment_tfrecord_dataset(augmentations,
                                   cache=True,
                                   verbose=False):
 
-    def set_val_shape(x, y):
-        x.set_shape((shape[0], shape[1], 3))
-        y.set_shape((shape[0], shape[1], 1))
-        return x, y
-    
+    set_val_shape = lambda x, y: set_shape(x, y, shape=shape)    
     def read_prepare_tfrecordsdataset(ds,
                                       batch_size=None,
                                       augment=None):
@@ -355,8 +356,11 @@ def read_augment_tfrecord_dataset(augmentations,
                   .batch(batch_size, drop_remainder=False)
                   .prefetch(AUTOTUNE))
         return ds
-    
-    generator = ImageDataGenerator(**augmentations)
+
+    if augmentations:
+        generator = ImageDataGenerator(**augmentations)
+    else:
+        generator = None
     
     def augment(x, y):
         rt = generator.get_random_transform((shape[0], shape[1], 3))
@@ -379,16 +383,42 @@ def read_augment_tfrecord_dataset(augmentations,
                     and rec.find(shape_str) >= 0]
     train_recs = [ds_home + rec for rec in records if rec.find('_train_') > 0 
                     and rec.find(shape_str) >= 0]
-    
-    train_ds = read_prepare_tfrecordsdataset(
-        tf.data.TFRecordDataset(train_recs, num_parallel_reads=AUTOTUNE),
-        batch_size=batch_size,
-        augment=augment_tf
-    )
+    if generator:
+        train_ds = read_prepare_tfrecordsdataset(
+            tf.data.TFRecordDataset(train_recs, num_parallel_reads=AUTOTUNE),
+            batch_size=batch_size,
+            augment=augment_tf
+        )
+    else:
+        train_ds = read_prepare_tfrecordsdataset(tf.data.TFRecordDataset(
+        train_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
     val_ds = read_prepare_tfrecordsdataset(tf.data.TFRecordDataset(
         val_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
     return train_ds, val_ds
 
+def representative_tfrecord_dataset(ds_home='/home/aholdobin/tfrecords_v3/',
+                                    shape=(32, 32),
+                                    cache=True,
+                                    verbose=False):
+    
+    set_repr_shape = lambda x, y: set_shape(x, y, shape=shape)
+
+    records = os.listdir(ds_home)
+    shape_str = "{}x{}".format(shape[0], shape[1])
+    train_recs = [ds_home + rec for rec in records if rec.find('_train_') > 0 
+                    and rec.find(shape_str) >= 0]
+    
+    ds = tf.data.TFRecordDataset(train_recs, num_parallel_reads=AUTOTUNE)
+    ds = ds.map(read_tfrecord, num_parallel_calls=AUTOTUNE)
+    if cache:
+        ds = ds.cache()
+    ds = (ds.map(set_repr_shape, num_parallel_calls=AUTOTUNE)
+            .prefetch(AUTOTUNE))
+    return ds
+
+def representative_tfrecord_dataset_gen(dataset):
+    for x, _ in dataset.as_numpy_iterator():
+        yield x
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

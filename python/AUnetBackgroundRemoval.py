@@ -83,26 +83,58 @@ class AUnetBackgroundRemoval:
     def save_tflite(self, best=False):
         if best:
             self.load_last_checkpoint()
-        optimizations = [
-            (tf.lite.Optimize.DEFAULT, tf.float32, "default_32fp"),
-            (tf.lite.Optimize.DEFAULT, tf.float16, "default_16fp"),
-            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float32, "latency_32fp"),
-            (tf.lite.Optimize.OPTIMIZE_FOR_LATENCY, tf.float16, "latency_16fp")
-        ]
 
         path = os.path.join(self.__checkpoints_folder, "tflite")
         if not os.path.exists(path):
             os.mkdir(path)
 
-        for optimization, tensor_type, name in optimizations:
-            converter = tf.lite.TFLiteConverter.from_keras_model(self.__model)
-            converter.post_training_quantize = True
-            converter.optimizations = [optimization]
-            converter.target_spec.supported_types = [tensor_type]
-            tflite_model = converter.convert()
+        ds = data_preparation.representative_tfrecord_dataset(shape=self.__input_shape, cache=False)
+        ds_gen = lambda : data_preparation.representative_tfrecord_dataset_gen(ds)
 
-            with open(os.path.join(path, "{}_{}.tflite".format(self.__unique_name, name)), "wb") as f:
-                f.write(tflite_model)
+        optimizations_dict = [
+            {
+                'opt_name': 'drq', 
+                'supported_ops': [tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
+                'representative_dataset': None
+            },
+            {
+                'opt_name': 'fiq', 
+                'supported_ops': [tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
+                'representative_dataset': ds_gen
+            },
+            {
+                'opt_name': 'fq', 
+                'supported_ops': [tf.float16],
+                'representative_dataset': None
+            },
+            {
+                'opt_name': '32fp', 
+                'supported_ops': [tf.float32],
+                'representative_dataset': None
+            },
+            {
+                'opt_name': '16fp', 
+                'supported_ops': [tf.float16],
+                'representative_dataset': None
+            },
+        ]
+
+        for optimization in optimizations_dict:
+            converter = tf.lite.TFLiteConverter.from_keras_model(self.__model)
+            converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            if optimization['opt_name'] in {'32fp', '16fp'}:
+                model_file_name = f"{self.__unique_name}_{optimization['opt_name']}.tflite"
+                converter.post_training_quantize = True
+            else:
+                model_file_name = f"post_ds3_{self.__unique_name}_{optimization['opt_name']}.tflite"
+            if optimization['supported_ops']:
+                converter.target_spec.supported_ops = optimization['supported_ops']
+            if optimization['representative_dataset']:
+                converter.representative_dataset = optimization['representative_dataset']
+            tflite_quant_model = converter.convert()
+            with open(os.path.join(path, model_file_name), 'wb') as f:
+                f.write(tflite_quant_model)
+        del ds, ds_gen
     
     def train_from_memory(self, x_train, y_train, x_val, y_val, epochs=1000, batch_size=1024, augm_args=data_preparation.AUGMENTATIONS):
 
@@ -170,14 +202,12 @@ if __name__ == "__main__":
                         required=False, dest='pascal_voc_path')
     parser.add_argument('-c', '--coco-portraints-path',
                         required=False, dest='coco_portraits_path')
-    # TODO
-    # parser.add_argument('-s', '--supervisely-person-path', required=False, dest='supervisely_person_path')
     parser.add_argument('-up', '--use_pascal-voc-path',
                         action='store_true', required=False, dest='use_pascal_voc')
     parser.add_argument('-uc', '--use-coco-portraints-path',
                         action='store_true', required=False, dest='use_coco_portraits')
-    # TODO
-    # parser.add_argument('-us', '--use-supervisely-person-path', action='store_true', required=False, dest='use_supervisely_person')
+    parser.add_argument('-cf', '--checkpoints-folder',
+                        required=False, dest='checkpoints_folder', default='training_grid')
     parser.add_argument('-r', '--tfrecords-path', type=str,
                         required=False, dest='tfrecords_path', default=None)
     parser.add_argument('-e', '--epochs', type=int,
@@ -226,7 +256,8 @@ if __name__ == "__main__":
     aunet = AUnetBackgroundRemoval(
         input_shape=input_shape,
         filters=args.filters,
-        verbose=args.verbose)
+        verbose=args.verbose,
+        checkpoints_folder=args.checkpoints_folder)
     
     if args.restore:
         aunet.load_last_checkpoint(warning=True)
@@ -242,8 +273,8 @@ if __name__ == "__main__":
                                                                           verbose=args.verbose)
 
         aunet.train_from_dataset(ds_train, ds_val, steps_per_epoch=steps_per_epoch, epochs=args.epochs)
-
-    elif args.use_pascal_voc or args.use_coco_portraits:  # TODO add or args.use_supervisely_person
+    # Deprecated (for dataset v2):
+    elif args.use_pascal_voc or args.use_coco_portraits:
         # Dataset (train and val) preparation
         # prepare args:
         pascal_voc_home = '/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/'
@@ -268,6 +299,3 @@ if __name__ == "__main__":
                     epochs=args.epochs, batch_size=args.batch_size)
     if args.tflite:
         aunet.save_tflite(best=True)
-
-
-    
