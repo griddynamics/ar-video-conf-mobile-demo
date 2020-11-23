@@ -208,6 +208,10 @@ if __name__ == "__main__":
                         action='store_true', required=False, dest='use_coco_portraits')
     parser.add_argument('-cf', '--checkpoints-folder',
                         required=False, dest='checkpoints_folder', default='training_grid')
+    parser.add_argument('-if', '--interior-folder',
+                        required=False, dest='interior_folder')
+    parser.add_argument('-ef', '--exterior-folder',
+                        required=False, dest='exterior_folder')
     parser.add_argument('-r', '--tfrecords-path', type=str,
                         required=False, dest='tfrecords_path', default=None)
     parser.add_argument('-e', '--epochs', type=int,
@@ -252,7 +256,7 @@ if __name__ == "__main__":
             print(e)
 
     input_shape = (args.side, args.side)
-
+    background_patterns = (args.interior_folder, args.exterior_folder)
     aunet = AUnetBackgroundRemoval(
         input_shape=input_shape,
         filters=args.filters,
@@ -267,6 +271,7 @@ if __name__ == "__main__":
         steps_per_epoch = (args.number_of_examples + args.batch_size - 1) // args.batch_size
         ds_train, ds_val = data_preparation.read_augment_tfrecord_dataset(data_preparation.AUGMENTATIONS,
                                                                           ds_home=tfrecord_path,
+                                                                          background_patterns=background_patterns,
                                                                           shape=input_shape,
                                                                           cache=args.cache,
                                                                           batch_size=args.batch_size,

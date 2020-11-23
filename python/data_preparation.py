@@ -33,6 +33,7 @@ FEATURE_DESCRIPTION = {
     'x': tf.io.FixedLenFeature((), tf.string),
     'y': tf.io.FixedLenFeature((), tf.string),
 }
+ASPECT_RATIO = 16./9.
 
 def prepare_process_dataset_into_memory(pascal_voc_home='/home/aholdobin/pascalvoc2012/VOCdevkit/VOC2012/',
                     coco_home='/home/aholdobin/faces/',
@@ -86,7 +87,6 @@ def prepare_process_dataset_into_memory(pascal_voc_home='/home/aholdobin/pascalv
             print("x_pv: ", x_pv.shape)
             print("y_pv: ", y_pv.shape)
 
-        
     # LOADING COCO DATA IF PROVIDED
     if coco_home and os.path.exists(coco_home):
         images = []
@@ -245,7 +245,6 @@ def preprocess_store_pascal(ds_train, ds_val,
 
     NUMBER_OF_EXAMPLES_IN_FILE = 200 * 10**6 // (shape[0] * shape[1] * 3 * 4)
 
-    filenames = []
     if dataset_home and os.path.exists(dataset_home):
 
         if verbose:
@@ -324,19 +323,29 @@ def read_tfrecord(serialized_example):
 
     return x, y
 
+
 def set_shape(x, y, shape):
     x.set_shape((shape[0], shape[1], 3))
     y.set_shape((shape[0], shape[1], 1))
     return x, y
 
+
 def read_augment_tfrecord_dataset(augmentations,
                                   ds_home='/home/aholdobin/tfrecords_v3/',
+                                  background_patterns=None,
                                   shape=(32, 32),
                                   batch_size=32,
                                   cache=True,
                                   verbose=False):
 
-    set_val_shape = lambda x, y: set_shape(x, y, shape=shape)    
+    set_val_shape = lambda x, y: set_shape(x, y, shape=shape)
+    if background_patterns:
+        print('creating background')
+        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape)
+        print('created bg')
+    else:
+        bg_iterator = None
+
     def read_prepare_tfrecordsdataset(ds,
                                       batch_size=None,
                                       augment=None):
@@ -347,14 +356,17 @@ def read_augment_tfrecord_dataset(augmentations,
             ds = ds.cache()
         if augment:
             ds = (ds.shuffle(batch_size*2, seed=0, reshuffle_each_iteration=True)
-                  .repeat()
-                  .map(augment, num_parallel_calls=AUTOTUNE)
-                  .batch(batch_size, drop_remainder=False)
-                  .prefetch(AUTOTUNE))
+                    .repeat()
+                    .map(augment, num_parallel_calls=AUTOTUNE))
+            if bg_iterator:
+                print('bg iter map')
+                ds = ds.map(lambda x, y: random_alter_bg_tf(x, y, bg_iterator), num_parallel_calls=AUTOTUNE)
+            ds = (ds.batch(batch_size, drop_remainder=False)
+                    .prefetch(AUTOTUNE))
         else:
             ds = (ds.map(set_val_shape, num_parallel_calls=AUTOTUNE)
-                  .batch(batch_size, drop_remainder=False)
-                  .prefetch(AUTOTUNE))
+                    .batch(batch_size, drop_remainder=False)
+                    .prefetch(AUTOTUNE))
         return ds
 
     if augmentations:
@@ -396,6 +408,7 @@ def read_augment_tfrecord_dataset(augmentations,
         val_recs, num_parallel_reads=AUTOTUNE), batch_size=batch_size)
     return train_ds, val_ds
 
+
 def representative_tfrecord_dataset(ds_home='/home/aholdobin/tfrecords_v3/',
                                     shape=(32, 32),
                                     cache=True,
@@ -416,9 +429,89 @@ def representative_tfrecord_dataset(ds_home='/home/aholdobin/tfrecords_v3/',
             .prefetch(AUTOTUNE))
     return ds
 
+
 def representative_tfrecord_dataset_gen(dataset):
     for x, _ in dataset.as_numpy_iterator():
         yield x
+
+
+def parse_image(filename):
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    return image
+
+
+def resize_crop(image, shape):
+    if image.shape[0]/ASPECT_RATIO >= image.shape[1]:
+        new_shape = ((int(image.shape[0]*shape[1]//image.shape[1]//ASPECT_RATIO)), shape[1])
+    else:
+        new_shape = (shape[0], int(np.floor(shape[0]*ASPECT_RATIO*image.shape[1]//image.shape[0])))
+    
+    print(image.shape, new_shape)
+    image = tf.image.resize(image, new_shape)
+    return tf.image.random_crop(image, (*shape, 3))
+
+
+def resize_crop_tf(image, shape):
+    image = tf.numpy_function(lambda x: resize_crop(x, shape), [image], (tf.float32))
+    image.set_shape((*shape, 3))
+    return image
+
+
+def create_background_dataset(images_pattern,
+                              shape=(32, 32),
+                              augment_preprocess=None):
+    dataset = tf.data.Dataset.list_files(images_pattern)
+    dataset = dataset.map(parse_image, num_parallel_calls=AUTOTUNE)
+    if augment_preprocess:
+        dataset = augment_preprocess(dataset)
+    dataset = dataset.map(lambda x: resize_crop_tf(x, shape), num_parallel_calls=AUTOTUNE)
+    return dataset
+
+
+def create_background_iterator(interior_pattern="/Users/aholdobin/projects/data/nyu_depth_images/*",
+                               exterior_pattern="/Users/aholdobin/projects/data/CMP_facade_DB_base/base/*.jpg",
+                               shape=(32, 32)):
+    int_ds = None
+    ext_ds = None
+    if interior_pattern:
+        int_ds = create_background_dataset(interior_pattern, shape)
+    if exterior_pattern:
+        ext_ds = create_background_dataset(exterior_pattern, shape)
+    if int_ds:
+        if ext_ds:
+            return int_ds.concatenate(ext_ds).as_numpy_iterator()
+        else:
+            return int_ds.as_numpy_iterator()
+    elif ext_ds:
+        return ext_ds.as_numpy_iterator()
+    else:
+        print('Background images were not provided. Continuing without background altering')
+        return None
+
+    
+    return (create_background_dataset(interior_pattern, shape)
+                .concatenate()).as_numpy_iterator()
+
+
+def random_alter_bg(image, mask, iterator_bg, p=.5):
+    if np.random.rand() < p:
+        image = image * mask
+        background = next(iterator_bg)
+        background *= 1. - mask
+        image += background
+    return image, mask
+
+
+def random_alter_bg_tf(image, mask, iterator_bg, p=.5):
+    image_shape = image.shape
+    mask_shape = mask.shape
+    image, mask = tf.numpy_function(lambda x, y: random_alter_bg(x, y, iterator_bg, p), [image, mask], (tf.float32, tf.float32))
+    image.set_shape(image_shape)
+    mask.set_shape(mask_shape)
+    return image, mask
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
