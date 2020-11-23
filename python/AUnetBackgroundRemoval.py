@@ -222,7 +222,7 @@ if __name__ == "__main__":
                         required=False, dest='filters', default=8)
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32)
-    parser.add_argument('-e', '--number-of-examples', type=int,
+    parser.add_argument('-n', '--number-of-examples', type=int,
                         required=False, dest='number_of_examples', default=27781)
     parser.add_argument('-ch', '--cache', action='store_true',
                         required=False, dest='cache', default=False)
