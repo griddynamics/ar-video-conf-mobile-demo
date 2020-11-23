@@ -341,7 +341,7 @@ def read_augment_tfrecord_dataset(augmentations,
     set_val_shape = lambda x, y: set_shape(x, y, shape=shape)
     if background_patterns:
         print('creating background')
-        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape)
+        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape, cache=cache)
         print('created bg')
     else:
         bg_iterator = None
@@ -461,9 +461,12 @@ def resize_crop_tf(image, shape):
 
 def create_background_dataset(images_pattern,
                               shape=(32, 32),
-                              augment_preprocess=None):
+                              augment_preprocess=None,
+                              cache=False):
     dataset = tf.data.Dataset.list_files(images_pattern)
     dataset = dataset.map(parse_image, num_parallel_calls=AUTOTUNE)
+    if cache:
+        dataset = dataset.cache()
     if augment_preprocess:
         dataset = augment_preprocess(dataset)
     dataset = dataset.map(lambda x: resize_crop_tf(x, shape), num_parallel_calls=AUTOTUNE)
@@ -472,13 +475,14 @@ def create_background_dataset(images_pattern,
 
 def create_background_iterator(interior_pattern="/Users/aholdobin/projects/data/nyu_depth_images/*",
                                exterior_pattern="/Users/aholdobin/projects/data/CMP_facade_DB_base/base/*.jpg",
-                               shape=(32, 32)):
+                               shape=(32, 32),
+                               cache=False):
     int_ds = None
     ext_ds = None
     if interior_pattern:
-        int_ds = create_background_dataset(interior_pattern, shape)
+        int_ds = create_background_dataset(interior_pattern, shape, cache=cache)
     if exterior_pattern:
-        ext_ds = create_background_dataset(exterior_pattern, shape)
+        ext_ds = create_background_dataset(exterior_pattern, shape, cache=cache)
     if int_ds:
         if ext_ds:
             return int_ds.concatenate(ext_ds).as_numpy_iterator()
