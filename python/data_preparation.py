@@ -493,18 +493,14 @@ def create_background_iterator(interior_pattern="/Users/aholdobin/projects/data/
         ext_ds = create_background_dataset(exterior_pattern, shape, cache=cache)
     if int_ds:
         if ext_ds:
-            return int_ds.concatenate(ext_ds).repeat().prefetch(batch_size*2).as_numpy_iterator()
+            return int_ds.concatenate(ext_ds).repeat().prefetch(batch_size*2).__iter__()
         else:
-            return int_ds.repeat().prefetch(batch_size*2).as_numpy_iterator()
+            return int_ds.repeat().prefetch(batch_size*2).__iter__()
     elif ext_ds:
-        return ext_ds.repeat().prefetch(batch_size*2).as_numpy_iterator()
+        return ext_ds.repeat().prefetch(batch_size*2).__iter__()
     else:
         print('Background images were not provided. Continuing without background altering')
         return None
-
-    
-    return (create_background_dataset(interior_pattern, shape)
-                .concatenate()).as_numpy_iterator()
 
 
 def random_alter_bg(image, mask, iterator_bg, p=.5):
