@@ -341,7 +341,8 @@ def read_augment_tfrecord_dataset(augmentations,
     set_val_shape = lambda x, y: set_shape(x, y, shape=shape)
     if background_patterns:
         # print('creating background')
-        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape, cache=cache)
+        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape,
+                                                 batch_size=batch_size, cache=cache)
         # print('created bg')
     else:
         bg_iterator = None
@@ -442,7 +443,7 @@ def parse_image(filename):
     return image
 
 
-def resize_crop(image, shape):
+def resize(image, shape):
     if image.shape[0]/ASPECT_RATIO >= image.shape[1]:
         new_shape = ((int(image.shape[0]*shape[1]//image.shape[1]//ASPECT_RATIO)), shape[1])
     else:
@@ -450,11 +451,16 @@ def resize_crop(image, shape):
     
     # print(image.shape, new_shape)
     image = tf.image.resize(image, new_shape)
-    return tf.image.random_crop(image, (*shape, 3))
+    return image
 
 
-def resize_crop_tf(image, shape):
-    image = tf.numpy_function(lambda x: resize_crop(x, shape), [image], (tf.float32))
+def resize_tf(image, shape):
+    image = tf.numpy_function(lambda x: resize(x, shape), [image], (tf.float32))
+    return image
+
+
+def crop_tf(image, shape):
+    image = tf.numpy_function(lambda x: tf.image.random_crop(x, (*shape, 3)), [image], (tf.float32))
     image.set_shape((*shape, 3))
     return image
 
@@ -465,17 +471,19 @@ def create_background_dataset(images_pattern,
                               cache=False):
     dataset = tf.data.Dataset.list_files(images_pattern)
     dataset = dataset.map(parse_image, num_parallel_calls=AUTOTUNE)
+    dataset = dataset.map(lambda x: resize_tf(x, shape), num_parallel_calls=AUTOTUNE)
     if cache:
         dataset = dataset.cache()
     if augment_preprocess:
         dataset = augment_preprocess(dataset)
-    dataset = dataset.map(lambda x: resize_crop_tf(x, shape), num_parallel_calls=AUTOTUNE)
+    dataset = dataset.map(lambda x: crop_tf(x, shape), num_parallel_calls=AUTOTUNE)
     return dataset
 
 
 def create_background_iterator(interior_pattern="/Users/aholdobin/projects/data/nyu_depth_images/*",
                                exterior_pattern="/Users/aholdobin/projects/data/CMP_facade_DB_base/base/*.jpg",
                                shape=(32, 32),
+                               batch_size=32,
                                cache=False):
     int_ds = None
     ext_ds = None
@@ -485,11 +493,11 @@ def create_background_iterator(interior_pattern="/Users/aholdobin/projects/data/
         ext_ds = create_background_dataset(exterior_pattern, shape, cache=cache)
     if int_ds:
         if ext_ds:
-            return int_ds.concatenate(ext_ds).as_numpy_iterator()
+            return int_ds.concatenate(ext_ds).repeat().prefetch(batch_size*2).as_numpy_iterator()
         else:
-            return int_ds.as_numpy_iterator()
+            return int_ds.repeat().prefetch(batch_size*2).as_numpy_iterator()
     elif ext_ds:
-        return ext_ds.as_numpy_iterator()
+        return ext_ds.repeat().prefetch(batch_size*2).as_numpy_iterator()
     else:
         print('Background images were not provided. Continuing without background altering')
         return None
