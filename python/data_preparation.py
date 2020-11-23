@@ -340,9 +340,9 @@ def read_augment_tfrecord_dataset(augmentations,
 
     set_val_shape = lambda x, y: set_shape(x, y, shape=shape)
     if background_patterns:
-        print('creating background')
+        # print('creating background')
         bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape, cache=cache)
-        print('created bg')
+        # print('created bg')
     else:
         bg_iterator = None
 
@@ -359,7 +359,7 @@ def read_augment_tfrecord_dataset(augmentations,
                     .repeat()
                     .map(augment, num_parallel_calls=AUTOTUNE))
             if bg_iterator:
-                print('bg iter map')
+                # print('bg iter map')
                 ds = ds.map(lambda x, y: random_alter_bg_tf(x, y, bg_iterator), num_parallel_calls=AUTOTUNE)
             ds = (ds.batch(batch_size, drop_remainder=False)
                     .prefetch(AUTOTUNE))
@@ -448,7 +448,7 @@ def resize_crop(image, shape):
     else:
         new_shape = (shape[0], int(np.floor(shape[0]*ASPECT_RATIO*image.shape[1]//image.shape[0])))
     
-    print(image.shape, new_shape)
+    # print(image.shape, new_shape)
     image = tf.image.resize(image, new_shape)
     return tf.image.random_crop(image, (*shape, 3))
 
