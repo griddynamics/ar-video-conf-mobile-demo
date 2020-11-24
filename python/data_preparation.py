@@ -361,7 +361,7 @@ def read_augment_tfrecord_dataset(augmentations,
                     .map(augment, num_parallel_calls=AUTOTUNE))
             if bg_iterator:
                 # print('bg iter map')
-                ds = ds.map(lambda x, y: random_alter_bg_tf(x, y, bg_iterator), num_parallel_calls=AUTOTUNE)
+                ds = ds.map(lambda x, y: random_alter_bg_tf(x, y, bg_iterator))
             ds = (ds.batch(batch_size, drop_remainder=False)
                     .prefetch(AUTOTUNE))
         else:
@@ -470,13 +470,13 @@ def create_background_dataset(images_pattern,
                               augment_preprocess=None,
                               cache=False):
     dataset = tf.data.Dataset.list_files(images_pattern)
-    dataset = dataset.map(parse_image, num_parallel_calls=AUTOTUNE)
-    dataset = dataset.map(lambda x: resize_tf(x, shape), num_parallel_calls=AUTOTUNE)
+    dataset = dataset.map(parse_image)
+    dataset = dataset.map(lambda x: resize_tf(x, shape))
     if cache:
         dataset = dataset.cache()
     if augment_preprocess:
         dataset = augment_preprocess(dataset)
-    dataset = dataset.map(lambda x: crop_tf(x, shape), num_parallel_calls=AUTOTUNE)
+    dataset = dataset.map(lambda x: crop_tf(x, shape))
     return dataset
 
 
