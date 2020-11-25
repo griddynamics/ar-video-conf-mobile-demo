@@ -3,7 +3,7 @@ import gc
 import argparse
 import json
 # import cv2
-# import numpy as np
+import numpy as np
 import tensorflow as tf
 # from PIL import Image
 # from tqdm import tqdm
@@ -184,7 +184,8 @@ class AUnetBackgroundRemoval:
             train_ds,
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
-            validation_data= val_ds,
+            validation_data=val_ds,
+            validation_steps=np.ceil(steps_per_epoch/0.7*0.3),  # Based on the splitting dataset strategy: 70% - train, 30% - validation
             callbacks=[callback_checkpoint, gccp]
         )
 
