@@ -80,7 +80,7 @@ class AUnetBackgroundRemoval:
         self.__model.load_weights(os.path.join(
             self.__checkpoints_folder, name))
 
-    def save_tflite(self, best=False):
+    def save_tflite(self, ds_home, best=False):
         if best:
             self.load_last_checkpoint()
 
@@ -88,7 +88,7 @@ class AUnetBackgroundRemoval:
         if not os.path.exists(path):
             os.mkdir(path)
 
-        ds = data_preparation.representative_tfrecord_dataset(shape=self.__input_shape, cache=False)
+        ds = data_preparation.representative_tfrecord_dataset(ds_home=ds_home, shape=self.__input_shape, cache=False)
         ds_gen = lambda : data_preparation.representative_tfrecord_dataset_gen(ds)
 
         optimizations_dict = [
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                         required=False, dest='pascal_voc_path')
     parser.add_argument('-c', '--coco-portraints-path',
                         required=False, dest='coco_portraits_path')
-    parser.add_argument('-up', '--use_pascal-voc-path',
+    parser.add_argument('-up', '--use-pascal-voc-path',
                         action='store_true', required=False, dest='use_pascal_voc')
     parser.add_argument('-uc', '--use-coco-portraints-path',
                         action='store_true', required=False, dest='use_coco_portraits')
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32)
     parser.add_argument('-n', '--number-of-examples', type=int,
-                        required=False, dest='number_of_examples', default=27781)
+                        required=False, dest='number_of_examples', default=27781) # Dataset V3-V4
     parser.add_argument('-ch', '--cache', action='store_true',
                         required=False, dest='cache', default=False)
     parser.add_argument('-v', '--verbose', type=int,
@@ -303,5 +303,5 @@ if __name__ == "__main__":
         # train model
         aunet.train_from_memory(x_train, y_train, x_val, y_val,
                     epochs=args.epochs, batch_size=args.batch_size)
-    if args.tflite:
-        aunet.save_tflite(best=True)
+    if args.tflite and args.tfrecords_path:
+        aunet.save_tflite(best=True, ds_home=args.tfrecords_path)
