@@ -94,26 +94,26 @@ class AUnetBackgroundRemoval:
         optimizations_dict = [
             {
                 'opt_name': 'drq', 
-                'supported_ops': [tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
+                'supported_ops': None,
                 'representative_dataset': None
             },
             {
-                'opt_name': 'fiq', 
+                'opt_name': 'fiq',
                 'supported_ops': [tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
                 'representative_dataset': ds_gen
             },
             {
-                'opt_name': 'fq', 
+                'opt_name': 'fq',
                 'supported_ops': [tf.float16],
                 'representative_dataset': None
             },
             {
-                'opt_name': '32fp', 
+                'opt_name': '32fp',
                 'supported_ops': [tf.float32],
                 'representative_dataset': None
             },
             {
-                'opt_name': '16fp', 
+                'opt_name': '16fp',
                 'supported_ops': [tf.float16],
                 'representative_dataset': None
             },
@@ -123,6 +123,7 @@ class AUnetBackgroundRemoval:
             converter = tf.lite.TFLiteConverter.from_keras_model(self.__model)
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             if optimization['opt_name'] in {'32fp', '16fp'}:
+                converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
                 model_file_name = f"{self.__unique_name}_{optimization['opt_name']}.tflite"
                 converter.post_training_quantize = True
             else:
@@ -231,8 +232,8 @@ if __name__ == "__main__":
                         required=False, dest='verbose', default=0)
     parser.add_argument('--remove-all-previous-results', action='store_true',
                         required=False, dest='remove_all')
-    parser.add_argument('-l', '--generate-tflite', action='store_true',
-                        required=False, dest='tflite')
+    parser.add_argument('-l', '--generate-tflite-only', action='store_true',
+                        required=False, dest='tflite_only')
     parser.add_argument('--restore', action='store_true',
                         required=False, dest='restore')
 
@@ -267,7 +268,7 @@ if __name__ == "__main__":
     if args.restore:
         aunet.load_last_checkpoint(warning=True)
 
-    if args.tfrecords_path:
+    if args.tfrecords_path and not args.tflite_only:
         tfrecord_path = args.tfrecords_path
         steps_per_epoch = (args.number_of_examples + args.batch_size - 1) // args.batch_size
         ds_train, ds_val = data_preparation.read_augment_tfrecord_dataset(data_preparation.AUGMENTATIONS,
@@ -279,6 +280,7 @@ if __name__ == "__main__":
                                                                           verbose=args.verbose)
 
         aunet.train_from_dataset(ds_train, ds_val, steps_per_epoch=steps_per_epoch, epochs=args.epochs)
+        aunet.save_tflite(best=True, ds_home=args.tfrecords_path)
     # Deprecated (for dataset v2):
     elif args.use_pascal_voc or args.use_coco_portraits:
         # Dataset (train and val) preparation
@@ -303,5 +305,5 @@ if __name__ == "__main__":
         # train model
         aunet.train_from_memory(x_train, y_train, x_val, y_val,
                     epochs=args.epochs, batch_size=args.batch_size)
-    if args.tflite and args.tfrecords_path:
+    if args.tflite_only and args.tfrecords_path:
         aunet.save_tflite(best=True, ds_home=args.tfrecords_path)

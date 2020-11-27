@@ -433,7 +433,7 @@ def representative_tfrecord_dataset(ds_home='/home/aholdobin/tfrecords_v3/',
 
 def representative_tfrecord_dataset_gen(dataset):
     for x, _ in dataset.as_numpy_iterator():
-        yield x
+        yield [x.reshape(1, *x.shape)]
 
 
 def parse_image(filename):
