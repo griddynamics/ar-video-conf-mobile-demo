@@ -201,6 +201,7 @@ def prepare_example(file_fmt):
 
 def store_example(image, mask, index, destination):
     mask_ = np.zeros((image.shape[0], image.shape[1], 4))
+    image = cv2.cvtColor(image.astype('float32'), cv2.COLOR_RGB2BGR)
     mask_[:,:,:3] = image
     mask_[:,:,3] = (mask*255).astype('uint8')
     if not os.path.exists(destination):
@@ -211,8 +212,8 @@ def store_example(image, mask, index, destination):
         os.mkdir(image_path)
     if not os.path.exists(mask_path):
         os.mkdir(mask_path)
-    cv2.imwrite(os.path.join(image_path, "{:04}.jpg".format(index)), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-    cv2.imwrite(os.path.join(mask_path, "{:04}.png".format(index)), cv2.cvtColor(mask_, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(os.path.join(image_path, "{:04}.jpg".format(index)), image)
+    cv2.imwrite(os.path.join(mask_path, "{:04}.png".format(index)), mask_)
 
 
 def main():
