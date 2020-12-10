@@ -357,12 +357,12 @@ def read_augment_tfrecord_dataset(augmentations,
             ds = ds.cache()
         if augment:
             ds = (ds.shuffle(batch_size*2, seed=0, reshuffle_each_iteration=True)
-                    .repeat()
-                    .map(augment, num_parallel_calls=AUTOTUNE))
+                    .repeat())
             if bg_iterator:
                 # print('bg iter map')
                 ds = ds.map(lambda x, y: random_alter_bg_tf(x, y, bg_iterator))
-            ds = (ds.batch(batch_size, drop_remainder=False)
+            ds = (ds.map(augment, num_parallel_calls=AUTOTUNE)
+                    .batch(batch_size, drop_remainder=False)
                     .prefetch(AUTOTUNE))
         else:
             ds = (ds.map(set_val_shape, num_parallel_calls=AUTOTUNE)
