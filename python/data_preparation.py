@@ -341,8 +341,8 @@ def read_augment_tfrecord_dataset(augmentations,
     set_val_shape = lambda x, y: set_shape(x, y, shape=shape)
     if background_patterns:
         # print('creating background')
-        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1], shape=shape,
-                                                 batch_size=batch_size, cache=cache)
+        bg_iterator = create_background_iterator(background_patterns[0], background_patterns[1],
+                                                 shape=shape, batch_size=batch_size, cache=cache)
         # print('created bg')
     else:
         bg_iterator = None
@@ -374,7 +374,7 @@ def read_augment_tfrecord_dataset(augmentations,
         generator = ImageDataGenerator(**augmentations)
     else:
         generator = None
-    
+
     def augment(x, y):
         rt = generator.get_random_transform((shape[0], shape[1], 3))
         x_ = generator.apply_transform(x, rt)
@@ -382,7 +382,7 @@ def read_augment_tfrecord_dataset(augmentations,
         # which changes values of intensities such as brightness, contrast before applying to y
         y_ = generator.apply_transform(y, rt)
         return x_, y_
-    
+
     def augment_tf(x, y):
         x, y = tf.numpy_function(augment, [x, y], (tf.float32, tf.float32))
         x.set_shape((shape[0], shape[1], 3))
@@ -523,27 +523,38 @@ def random_alter_bg_tf(image, mask, iterator_bg, p=.5):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog='data_preparation', description='Preprocess data and transform in tfrecord format')
+        prog='data_preparation', description='Preprocess data and transform in the TFrecord format '
+                                             'for AUnetBackgroundRemoval.')
     parser.add_argument('-p', '--pascal-voc-path',
-                        required=False, dest='pascal_voc_path')
+                        required=False, dest='pascal_voc_path',
+                        help="specify path to the PascalVOC2012 dataset.")
     parser.add_argument('-c', '--coco-portraints-path',
-                        required=False, dest='coco_portraits_path')
+                        required=False, dest='coco_portraits_path',
+                        help="specify path to the Portraits dataset.")
     parser.add_argument('-s', '--supervisely-person-path', 
-                        required=False, dest='supervisely_person_path')
+                        required=False, dest='supervisely_person_path',
+                        help="specify path to the Supervise.ly Person dataset (processed with "
+                             "supervisely_preprocessing.py).")
     parser.add_argument('-d', '--tfrecord-destination',
-                        required=False, dest='tfrecord_destination')
-    parser.add_argument('-up', '--use_pascal-voc-path',
-                        action='store_true', required=False, dest='use_pascal_voc')
-    parser.add_argument('-uc', '--use-coco-portraints-path',
-                        action='store_true', required=False, dest='use_coco_portraits')
-    parser.add_argument('-us', '--use-supervisely-person-path', 
-                        action='store_true', required=False, dest='use_supervisely_person')
+                        required=False, dest='tfrecord_destination',
+                        help="specify destionation of creating TFRecords.")
+    parser.add_argument('-up', '--use_pascal-voc',
+                        action='store_true', required=False, dest='use_pascal_voc',
+                        help="process the PascalVOC2012 dataset.")
+    parser.add_argument('-uc', '--use-coco-portraints',
+                        action='store_true', required=False, dest='use_coco_portraits',
+                        help="process the Portrait dataset.")
+    parser.add_argument('-us', '--use-supervisely-person', 
+                        action='store_true', required=False, dest='use_supervisely_person',
+                        help="process the Supervise.ly Person dataset.")
     parser.add_argument('-sd', '--side', type=int,
-                        required=False, dest='side', default=32)
+                        required=False, dest='side', default=32,
+                        help="specify the side of downscaled image.")
     parser.add_argument('-v', '--verbose', type=int,
                         required=False, dest='verbose', default=0)
     parser.add_argument('--remove-all-previous-results', action='store_true',
-                        required=False, dest='remove_all')
+                        required=False, dest='remove_all',
+                        help="delete all files under the directory specified on `-d`.")
 
     args = parser.parse_args()
 

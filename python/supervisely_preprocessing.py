@@ -1,5 +1,3 @@
-import io
-import gc
 import json
 import base64
 import os
@@ -13,7 +11,7 @@ from mtcnn import MTCNN
 
 
 DS_FMTS = ('{dsf}/img/', '{dsf}/ann/')
-#FACE_DET = MTCNN()
+FACE_DET = None
 EPS = 1/32
 ASPECT_RATIO = 16/9
 
@@ -216,35 +214,40 @@ def store_example(image, mask, index, destination):
     cv2.imwrite(os.path.join(mask_path, "{:04}.png".format(index)), mask_)
 
 
-def main():
-
-    parser = argparse.ArgumentParser(
-        prog='supervise.ly_preprocessor', description='Extract examples from Supervise.ly Person Dataset')
-    parser.add_argument('-s', '--source-path',
-                        required=False, dest='source_path')
-    parser.add_argument('-d', '--destination-path',
-                        required=True, dest='destination')
-    args = parser.parse_args()
-
-    # preparing environment
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    # From [TensorFlow guide][1]https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        try:
-            first_gpu = gpus[0]
-            tf.config.experimental.set_virtual_device_configuration(first_gpu,
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=7000)])
-        except RuntimeError as e:
-            print(e)
-    DATASET_HOME = '/Users/aholdobin/projects/data/Supervisely Person Dataset/'
-    if args.source_path:
-        DATASET_HOME = args.source_path
+def initialize_facedet(initialize_gpu=False):
+    if initialize_gpu: 
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+        # From [TensorFlow guide][1]https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            try:
+                first_gpu = gpus[0]
+                tf.config.experimental.set_virtual_device_configuration(first_gpu,
+                        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=7000)])
+            except RuntimeError as e:
+                print(e)
     
     global FACE_DET
     FACE_DET = MTCNN()
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='supervise.ly_preprocessor', description='Extract examples from Supervise.ly '
+                                                      'Person Dataset (preprocessing).')
+    parser.add_argument('-s', '--source-path',
+                        required=False, dest='source_path',
+                        help="specify path to the Supervise.ly Person Dataset.")
+    parser.add_argument('-d', '--destination-path',
+                        required=True, dest='destination',
+                        help="specify the destination to store the processed dataset.")
+    args = parser.parse_args()
+
+    # preparing environment
+    initialize_facedet(initialize_gpu=True)
+    DATASET_HOME = '/Users/aholdobin/projects/data/Supervisely Person Dataset/'
+    if args.source_path:
+        DATASET_HOME = args.source_path
     ds_folders = get_ds_folders(DATASET_HOME)
     files = get_files(DATASET_HOME)
     
