@@ -527,26 +527,26 @@ if __name__ == "__main__":
                                              'for AUnetBackgroundRemoval.')
     parser.add_argument('-p', '--pascal-voc-path',
                         required=False, dest='pascal_voc_path',
-                        help="specify path to the PascalVOC2012 dataset.")
+                        help="specify the path to the PascalVOC2012 dataset.")
     parser.add_argument('-c', '--coco-portraints-path',
                         required=False, dest='coco_portraits_path',
-                        help="specify path to the Portraits dataset.")
+                        help="specify the path to the Portraits dataset.")
     parser.add_argument('-s', '--supervisely-person-path', 
                         required=False, dest='supervisely_person_path',
-                        help="specify path to the Supervise.ly Person dataset (processed with "
+                        help="specify the path to the Supervise.ly Person dataset (processed with "
                              "supervisely_preprocessing.py).")
     parser.add_argument('-d', '--tfrecord-destination',
                         required=False, dest='tfrecord_destination',
-                        help="specify destionation of creating TFRecords.")
+                        help="specify the destination of creating TFRecords.")
     parser.add_argument('-up', '--use_pascal-voc',
                         action='store_true', required=False, dest='use_pascal_voc',
-                        help="process the PascalVOC2012 dataset.")
+                        help="to process the PascalVOC2012 dataset.")
     parser.add_argument('-uc', '--use-coco-portraints',
                         action='store_true', required=False, dest='use_coco_portraits',
-                        help="process the Portrait dataset.")
+                        help="to process the Portrait dataset.")
     parser.add_argument('-us', '--use-supervisely-person', 
                         action='store_true', required=False, dest='use_supervisely_person',
-                        help="process the Supervise.ly Person dataset.")
+                        help="to process the Supervise.ly Person dataset.")
     parser.add_argument('-sd', '--side', type=int,
                         required=False, dest='side', default=32,
                         help="specify the side of downscaled image.")

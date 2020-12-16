@@ -237,7 +237,8 @@ def main():
                                                       'Person Dataset (preprocessing).')
     parser.add_argument('-s', '--source-path',
                         required=False, dest='source_path',
-                        help="specify path to the Supervise.ly Person Dataset.")
+                        help="specify the path to the Supervise.ly Person Dataset. "
+                             "Required if different from the default.")
     parser.add_argument('-d', '--destination-path',
                         required=True, dest='destination',
                         help="specify the destination to store the processed dataset.")
